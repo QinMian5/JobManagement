@@ -12,13 +12,16 @@ _X_STAR_list = [0, 100, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1700, 1800]
 _filename_job_params = "job_params.json"
 _filename_op = "order_parameters.dat"
 _filename_pp = "post_processing.dat"
+_filename_pp2 = "post_processing_with_PI.dat"
 _filename_job = "job.sh"
 _filename_job_post = "job_post.sh"
 _filename_op_out = "op.out"
 _filename_trj = "trajout.xtc"
 _filename_index = "solid_like_atoms.index"
+_filename_index2 = "solid_like_atoms_with_PI.index"
 _path_data_dir = Path("./data")
 _path_result_dir = Path("./result")
+_path_template_dir = Path("./template")
 
 
 def _load_params() -> dict[str, dict]:
@@ -75,13 +78,15 @@ def create(backup=True) -> None:
         _backup(_path_data_dir)
         _path_data_dir.mkdir()
 
-    path_template_op = Path("./template") / _filename_op
+    path_template_op = _path_template_dir / _filename_op
     template_content_op = path_template_op.read_text()
-    path_template_pp = Path("./template") / _filename_pp
+    path_template_pp = _path_template_dir / _filename_pp
     template_content_pp = path_template_pp.read_text()
-    path_template_job = Path("./template") / _filename_job
+    path_template_pp2 = _path_template_dir / _filename_pp2
+    template_content_pp2 = path_template_pp2.read_text()
+    path_template_job = _path_template_dir / _filename_job
     template_content_job = path_template_job.read_text()
-    path_template_job_post = Path("./template") / _filename_job_post
+    path_template_job_post = _path_template_dir / _filename_job_post
     template_content_job_post = path_template_job_post.read_text()
 
     job_params = _load_params()
@@ -93,6 +98,8 @@ def create(backup=True) -> None:
         path_op.write_text(_replace_params(template_content_op, params))
         path_pp = path_dir / _filename_pp
         path_pp.write_text(_replace_params(template_content_pp, params))
+        path_pp2 = path_dir / _filename_pp2
+        path_pp2.write_text(_replace_params(template_content_pp2, params))
         path_job = path_dir / _filename_job
         path_job.write_text(_replace_params(template_content_job, params))
         path_job_post = path_dir / _filename_job_post
@@ -126,10 +133,26 @@ def gather() -> None:
         path_src_dir = _path_data_dir / f"{name}"
         path_dst_dir = _path_result_dir / f"{name}"
         path_dst_dir.mkdir()
-        # Copy op.out
+        # Copy result
         shutil.copyfile(path_src_dir / _filename_op_out, path_dst_dir / _filename_op_out)
         shutil.copyfile(path_src_dir / _filename_trj, path_dst_dir / _filename_trj)
         shutil.copyfile(path_src_dir / _filename_index, path_dst_dir / _filename_index)
+        shutil.copyfile(path_src_dir / _filename_index2, path_dst_dir / _filename_index2)
+
+
+def clean() -> None:
+    job_params = _load_params()
+    for backup_folder in Path(".").glob("#*"):
+        shutil.rmtree(backup_folder)
+        print(f"Deleted {backup_folder.resolve()}")
+    for job_name in job_params.keys():
+        working_dir = _path_data_dir / job_name
+        for backup_file in working_dir.glob("#*"):
+            backup_file.unlink()
+            print(f"Deleted {backup_file.resolve()}")
+        for old_log_file in working_dir.glob(r"slurm*"):
+            old_log_file.unlink()
+            print(f"Deleted {old_log_file.resolve()}")
 
 
 def main():
@@ -139,6 +162,7 @@ def main():
     parser.add_argument("--submit", action="store_true", help="Execute the submit function")
     parser.add_argument("--submit_post", action="store_true", help="Execute the submit_post function")
     parser.add_argument("--gather", action="store_true", help="Execute the gather function")
+    parser.add_argument("--clean", action="store_true", help="Execute the clean function")
 
     args = parser.parse_args()
     if args.create:
@@ -157,6 +181,10 @@ def main():
     if args.gather:
         print("Gathering results...")
         gather()
+        print("Done.")
+    if args.clean:
+        print("Cleaning backup files...")
+        clean()
         print("Done.")
 
 
