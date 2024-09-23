@@ -8,17 +8,23 @@ import shlex
 import json
 import argparse
 
+# TODO: Use class
 _X_STAR_list = [0, 100, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1700, 1800]
 _filename_job_params = "job_params.json"
 _filename_op = "order_parameters.dat"
 _filename_pp = "post_processing.dat"
 _filename_pp2 = "post_processing_with_PI.dat"
+_filename_pp3 = "post_processing_chillplus.dat"
+_folder_name_pp = "post_processing"
+_folder_name_pp2 = "post_processing_with_PI"
+_folder_name_pp3 = "post_processing_chillplus"
 _filename_job = "job.sh"
 _filename_job_post = "job_post.sh"
 _filename_op_out = "op.out"
 _filename_trj = "trajout.xtc"
 _filename_index = "solid_like_atoms.index"
 _filename_index2 = "solid_like_atoms_with_PI.index"
+_filename_index3 = "solid_like_atoms_chillplus.index"
 _path_data_dir = Path("./data")
 _path_result_dir = Path("./result")
 _path_template_dir = Path("./template")
@@ -36,6 +42,7 @@ def _write_params() -> None:
         job_params[f"op_{X_STAR}"] = {
             "QBAR": {"TYPE": "parabola", "CENTER": X_STAR, "KAPPA": 0.05},
             "TEMPERATURE": 300
+            "RAMP_TIME": 5000
         }
     with open(_filename_job_params, 'w') as file:
         json.dump(job_params, file, indent='\t')
@@ -84,6 +91,8 @@ def create(backup=True) -> None:
     template_content_pp = path_template_pp.read_text()
     path_template_pp2 = _path_template_dir / _filename_pp2
     template_content_pp2 = path_template_pp2.read_text()
+    path_template_pp3 = _path_template_dir / _filename_pp3
+    template_content_pp3 = path_template_pp3.read_text()
     path_template_job = _path_template_dir / _filename_job
     template_content_job = path_template_job.read_text()
     path_template_job_post = _path_template_dir / _filename_job_post
@@ -96,10 +105,15 @@ def create(backup=True) -> None:
 
         path_op = path_dir / _filename_op
         path_op.write_text(_replace_params(template_content_op, params))
-        path_pp = path_dir / _filename_pp
+        path_pp = path_dir / _folder_name_pp / _filename_pp
+        path_pp.parent.mkdir(exist_ok=True)
         path_pp.write_text(_replace_params(template_content_pp, params))
-        path_pp2 = path_dir / _filename_pp2
+        path_pp2 = path_dir / _folder_name_pp2 / _filename_pp2
+        path_pp2.parent.mkdir(exist_ok=True)
         path_pp2.write_text(_replace_params(template_content_pp2, params))
+        path_pp3 = path_dir / _folder_name_pp3 / _filename_pp3
+        path_pp3.parent.mkdir(exist_ok=True)
+        path_pp3.write_text(_replace_params(template_content_pp3, params))
         path_job = path_dir / _filename_job
         path_job.write_text(_replace_params(template_content_job, params))
         path_job_post = path_dir / _filename_job_post
@@ -136,8 +150,9 @@ def gather() -> None:
         # Copy result
         shutil.copyfile(path_src_dir / _filename_op_out, path_dst_dir / _filename_op_out)
         shutil.copyfile(path_src_dir / _filename_trj, path_dst_dir / _filename_trj)
-        shutil.copyfile(path_src_dir / _filename_index, path_dst_dir / _filename_index)
-        shutil.copyfile(path_src_dir / _filename_index2, path_dst_dir / _filename_index2)
+        shutil.copyfile(path_src_dir / _folder_name_pp / _filename_index, path_dst_dir / _filename_index)
+        shutil.copyfile(path_src_dir / _folder_name_pp2 / _filename_index, path_dst_dir / _filename_index2)
+        shutil.copyfile(path_src_dir / _folder_name_pp3 / _filename_index, path_dst_dir / _filename_index3)
 
 
 def clean() -> None:
@@ -153,6 +168,13 @@ def clean() -> None:
         for old_log_file in working_dir.glob(r"slurm*"):
             old_log_file.unlink()
             print(f"Deleted {old_log_file.resolve()}")
+        old_pp_file_list = ["F_q.out", "post_processing.dat", "post_processing_with_PI.dat", "solid_like_atoms.index",
+                            "solid_like_atoms_with_PI.index", "time_samples_q.out"]
+        for old_pp_file in old_pp_file_list:
+            old_file = working_dir / old_pp_file
+            if old_file.exists():
+                old_file.unlink()
+                print(f"Deleted {old_file.resolve()}")
 
 
 def main():
