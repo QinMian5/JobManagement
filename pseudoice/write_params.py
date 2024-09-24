@@ -15,6 +15,7 @@ def main():
             "QBAR": {"TYPE": "parabola", "CENTER": X_STAR, "KAPPA": 0.05},
             "TEMPERATURE": 300,
             "RAMP_TIME": ramp_time,
+            "PRD_TIME": prd_time,
             "NSTEPS": nsteps
         }
     with open("job_params.json", 'w') as file:
