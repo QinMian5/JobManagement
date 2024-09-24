@@ -8,44 +8,32 @@ import shlex
 import json
 import argparse
 
-# TODO: Use class
-_X_STAR_list = [0, 100, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1700, 1800]
-_filename_job_params = "job_params.json"
-_filename_op = "order_parameters.dat"
-_filename_pp = "post_processing.dat"
-_filename_pp2 = "post_processing_with_PI.dat"
-_filename_pp3 = "post_processing_chillplus.dat"
-_folder_name_pp = "post_processing"
-_folder_name_pp2 = "post_processing_with_PI"
-_folder_name_pp3 = "post_processing_chillplus"
+
+_templates = {
+    "job.sh": "job.sh",
+    "grompp.mdp": "grompp.mdp",
+    "order_parameters.dat": "order_parameters.dat",
+    "post_processing_qbar.dat": "post_processing_qbar/post_processing_qbar.dat",
+    "post_processing_with_PI.dat": "post_processing_with_PI/post_processing_with_PI.dat",
+    "post_processing_chillplus.dat": "post_processing_chillplus/post_processing_chillplus.dat"
+}
+_files_to_gather = {
+    "op.out": "op.out",
+    "trajout.xtc": "trajout.xtc",
+    "post_processing_qbar/solid_like_atoms_qbar.index": "solid_like_atoms_qbar.index",
+    "post_processing_with_PI/solid_like_atoms_with_PI.index": "solid_like_atoms_with_PI.index",
+    "post_processing_chillplus/solid_like_atoms_chillplus.index": "solid_like_atoms_chillplus.index"
+}
 _filename_job = "job.sh"
-_filename_job_post = "job_post.sh"
-_filename_op_out = "op.out"
-_filename_trj = "trajout.xtc"
-_filename_index = "solid_like_atoms.index"
-_filename_index2 = "solid_like_atoms_with_PI.index"
-_filename_index3 = "solid_like_atoms_chillplus.index"
 _path_data_dir = Path("./data")
 _path_result_dir = Path("./result")
 _path_template_dir = Path("./template")
 
 
 def _load_params() -> dict[str, dict]:
-    with open(_filename_job_params, 'r') as file:
+    with open("job_params.json", 'r') as file:
         job_params = json.load(file)
     return job_params
-
-
-def _write_params() -> None:
-    job_params = {}
-    for X_STAR in _X_STAR_list:
-        job_params[f"op_{X_STAR}"] = {
-            "QBAR": {"TYPE": "parabola", "CENTER": X_STAR, "KAPPA": 0.05},
-            "TEMPERATURE": 300
-            "RAMP_TIME": 5000
-        }
-    with open(_filename_job_params, 'w') as file:
-        json.dump(job_params, file, indent='\t')
 
 
 def _backup(path: Path) -> None:
@@ -157,7 +145,7 @@ def gather() -> None:
 
 def clean() -> None:
     job_params = _load_params()
-    for backup_folder in Path(".").glob("#*"):
+    for backup_folder in Path("..").glob("#*"):
         shutil.rmtree(backup_folder)
         print(f"Deleted {backup_folder.resolve()}")
     for job_name in job_params.keys():
@@ -211,5 +199,4 @@ def main():
 
 
 if __name__ == "__main__":
-    _write_params()
     main()
