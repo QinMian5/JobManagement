@@ -4,15 +4,20 @@ import json
 
 
 def main():
-    X_STAR_list = [0, 100, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1700, 1800]
+    icing = True
+    x_star_list = [0, 100, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1700, 1800]
     ramp_rate = 800 / 5000
     prd_time = 10000
+    # prd_time = 3000
     job_params = {}
-    for X_STAR in X_STAR_list:
-        ramp_time = int(X_STAR / ramp_rate)
+    x_star_init = 0 if icing else 2000
+    for x_star in x_star_list:
+        delta_x_star = abs(x_star - x_star_init)
+        ramp_time = int(delta_x_star / ramp_rate)
+        # ramp_time = 2000
         nsteps = int((ramp_time + prd_time) / 0.002)
-        job_params[f"op_{X_STAR}"] = {
-            "QBAR": {"TYPE": "parabola", "CENTER": X_STAR, "KAPPA": 0.05},
+        job_params[f"op_{x_star}"] = {
+            "QBAR": {"TYPE": "parabola", "STAR": x_star, "STAR_INIT": x_star_init, "KAPPA": 0.05},
             "TEMPERATURE": 300,
             "RAMP_TIME": ramp_time,
             "PRD_TIME": prd_time,

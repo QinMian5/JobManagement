@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --partition=p_pamish
-#SBATCH --job-name="op_${QBAR.CENTER}"
+#SBATCH --job-name="op_${QBAR.STAR}"
 #SBATCH --output=job.log
 #SBATCH --error=job.error
 #SBATCH --nodes=1
@@ -19,7 +19,7 @@ echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -s ../../topol.tpr -pbc mol -cente
 
 (
     cd post_processing || exit
-    OrderParameters post_processing.dat
+    OrderParameters post_processing_qbar.dat
 )
 
 (
@@ -30,5 +30,6 @@ echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -s ../../topol.tpr -pbc mol -cente
 (
     cd post_processing_chillplus || exit
     OrderParameters post_processing_chillplus.dat
+    python ../../../post_processing_chillplus.py
 )
 
