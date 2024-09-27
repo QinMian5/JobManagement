@@ -20,9 +20,9 @@ _templates = {
 _files_to_gather = {
     "op.out": "op.out",
     "trajout.xtc": "trajout.xtc",
-    "post_processing_qbar/solid_like_atoms_qbar.index": "solid_like_atoms_qbar.index",
-    "post_processing_with_PI/solid_like_atoms_with_PI.index": "solid_like_atoms_with_PI.index",
-    "post_processing_chillplus/solid_like_atoms_chillplus.index": "solid_like_atoms_chillplus.index"
+    "post_processing_qbar/solid_like_atoms.index": "solid_like_atoms_qbar.index",
+    "post_processing_with_PI/solid_like_atoms.index": "solid_like_atoms_with_PI.index",
+    "post_processing_chillplus/solid_like_atoms.index": "solid_like_atoms_chillplus.index"
 }
 _path_data_dir = Path("./data")
 _path_result_dir = Path("./result")
@@ -115,27 +115,30 @@ def gather() -> None:
             dst_path.parent.mkdir(exist_ok=True, parents=True)
             shutil.copyfile(src_path, dst_path)
 
+    command = "tar czvf result.tar.gz result"
+    subprocess.run(shlex.split(command))
+
 
 def clean() -> None:
     job_params = _load_params()
-    for backup_folder in Path("..").glob("#*"):
+    for backup_folder in Path(".").glob("#*"):
         shutil.rmtree(backup_folder)
-        print(f"Deleted {backup_folder.resolve()}")
+        print(f"Deleted {backup_folder}")
     for job_name in job_params.keys():
         working_dir = _path_data_dir / job_name
         for backup_file in working_dir.glob("#*"):
             backup_file.unlink()
-            print(f"Deleted {backup_file.resolve()}")
+            print(f"Deleted {backup_file}")
         for old_log_file in working_dir.glob(r"slurm*"):
             old_log_file.unlink()
-            print(f"Deleted {old_log_file.resolve()}")
+            print(f"Deleted {old_log_file}")
         old_pp_file_list = ["F_q.out", "post_processing_qbar.dat", "post_processing_with_PI.dat", "solid_like_atoms.index",
                             "solid_like_atoms_with_PI.index", "time_samples_q.out"]
         for old_pp_file in old_pp_file_list:
             old_file = working_dir / old_pp_file
             if old_file.exists():
                 old_file.unlink()
-                print(f"Deleted {old_file.resolve()}")
+                print(f"Deleted {old_file}")
 
 
 def main():
