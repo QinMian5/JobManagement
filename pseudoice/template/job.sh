@@ -17,6 +17,7 @@ gmx grompp -p ../../../../topol.top -f grompp.mdp -c ../../conf.gro -r ../../con
 mpirun -np 8 gmx_mpi mdrun -s topol.tpr -ntomp 1 -cpt 10 -dd 2 2 2 -op
 echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -s topol.tpr -pbc mol -center
 
+source activate gromacs
 (
     cd post_processing || exit
     OrderParameters post_processing_qbar.dat
@@ -33,3 +34,5 @@ echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -s topol.tpr -pbc mol -center
     OrderParameters post_processing_chillplus.dat
     python ../../../post_processing.py --chillplus
 )
+
+python ../../post_processing.py --interface
