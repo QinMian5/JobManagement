@@ -15,7 +15,7 @@ fi
 gmx grompp -p ../../../../topol.top -f grompp.mdp -c ../../conf.gro -r ../../conf.gro -maxwarn 10
 
 mpirun -np 8 gmx_mpi mdrun -s topol.tpr -ntomp 1 -cpt 10 -dd 2 2 2 -op
-echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -s ../../topol.tpr -pbc mol -center
+echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -s topol.tpr -pbc mol -center
 
 (
     cd post_processing || exit
