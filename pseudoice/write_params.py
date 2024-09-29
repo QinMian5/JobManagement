@@ -5,7 +5,7 @@ import json
 
 def main():
     icing = True
-    x_star_list = [0, 100, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1700, 1800]
+    x_star_list = [100, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1700]
     ramp_rate = 800 / 5000
     prd_time = 10000
     # prd_time = 3000

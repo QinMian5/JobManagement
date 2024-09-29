@@ -115,7 +115,7 @@ def calc_mean_interface_in_t_range(u: mda.Universe, solid_like_atoms_dict: dict[
                                    offset, t_range: tuple[float, float], ksi=3.5 / 2):
     acc_concentration = np.zeros(pos_grid.shape[:3])
     acc_n = 0
-    for ts in u.trajectory[::50]:  # 1 frame / 100 ps
+    for ts in u.trajectory[::10]:  # 1 frame / 100 ps
         t = ts.time
         if not t_range[0] <= t <= t_range[1]:
             continue
@@ -126,6 +126,7 @@ def calc_mean_interface_in_t_range(u: mda.Universe, solid_like_atoms_dict: dict[
             concentration = calc_concentration(pos_ice, pos_grid, u.dimensions[:3], ksi)
             acc_concentration += concentration
         acc_n += 1
+    print(f"Average over {acc_n} frames.")
     mean_concentration = acc_concentration / acc_n
     nodes, faces = generate_interface_from_concentration(mean_concentration)
     nodes = nodes * scale + offset
