@@ -30,6 +30,5 @@ echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -s ../../topol.tpr -pbc mol -cente
 (
     cd post_processing_chillplus || exit
     OrderParameters post_processing_chillplus.dat
-    python ../../../post_processing_chillplus.py
 )
-
+python ../../../post_processing_chillplus.py
