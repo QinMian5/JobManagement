@@ -111,26 +111,31 @@ def generate_interface_from_concentration(concentration: np.ndarray, level=0.015
     return nodes, faces
 
 
-def calc_mean_interface_in_t_range(u: mda.Universe, solid_like_atoms_dict: dict[str, list[str]], pos_grid, scale,
-                                   offset, t_range: tuple[float, float], ksi=3.5 / 2):
+def calc_interface_in_t_range(u: mda.Universe, solid_like_atoms_dict: dict[str, list[str]], pos_grid, scale,
+                              offset, t_range: tuple[float, float], ksi=3.5 / 2):
+    instantaneous_interface_dict = {}
     acc_concentration = np.zeros(pos_grid.shape[:3])
     acc_n = 0
     for ts in u.trajectory[::10]:  # 1 frame / 100 ps
         t = ts.time
-        if not t_range[0] <= t <= t_range[1]:
-            continue
         solid_like_atoms_id = solid_like_atoms_dict[f"{t:.1f}"]
         if solid_like_atoms_id:
             solid_like_atoms = u.select_atoms(f"bynum {' '.join(solid_like_atoms_id)}")
             pos_ice = solid_like_atoms.positions
             concentration = calc_concentration(pos_ice, pos_grid, u.dimensions[:3], ksi)
+            nodes, faces = generate_interface_from_concentration(concentration)
+            nodes = nodes * scale + offset
+        else:
+            concentration = 0
+            nodes, faces = [], []
+        instantaneous_interface_dict[f"{t:.1f}"] = [nodes, faces]
+        if t_range[0] <= t <= t_range[1]:
             acc_concentration += concentration
-        acc_n += 1
-    print(f"Average over {acc_n} frames.")
+            acc_n += 1
     mean_concentration = acc_concentration / acc_n
     nodes, faces = generate_interface_from_concentration(mean_concentration)
     nodes = nodes * scale + offset
-    return nodes, faces
+    return nodes, faces, instantaneous_interface_dict
 
 
 def post_processing_chillplus():
@@ -167,9 +172,11 @@ def post_processing_interface():
     t_start = params["RAMP_TIME"] + 200
     t_end = params["RAMP_TIME"] + params["PRD_TIME"]
     t_range = (t_start, t_end)
-    nodes, faces = calc_mean_interface_in_t_range(u, index_dict, pos_grid, scale, offset, t_range)
+    nodes, faces, instantaneous_interface_dict = calc_interface_in_t_range(u, index_dict, pos_grid, scale, offset, t_range)
     with open("interface.pickle", "wb") as file:
         pickle.dump([nodes, faces], file)
+    with open("instantaneous_interface.pickle", "wb") as file:
+        pickle.dump(instantaneous_interface_dict, file)
 
 
 def main():

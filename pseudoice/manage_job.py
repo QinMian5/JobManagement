@@ -24,6 +24,7 @@ _files_to_gather = {
     "post_processing_with_PI/solid_like_atoms.index": "solid_like_atoms_with_PI.index",
     "post_processing_chillplus/solid_like_atoms.index": "solid_like_atoms_chillplus.index",
     "interface.pickle": "interface.pickle",
+    "instantaneous_interface.pickle": "instantaneous_interface.pickle",
 }
 _path_data_dir = Path("./data")
 _path_result_dir = Path("./result")
