@@ -51,7 +51,8 @@ OrderParameter = {
 
 Bias = {
     order_parameter = qbar
-    x_star_range = [ ${QBAR.STAR_INIT} ${QBAR.STAR} ]
+    phi = ${QBAR.PHI}
+    x_star_range = [ ${QBAR.X_STAR_INIT} ${QBAR.X_STAR} ]
     t_range_ramp = [ 0 ${RAMP_TIME} ]
     kappa = ${QBAR.KAPPA}
 }

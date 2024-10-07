@@ -16,7 +16,7 @@ def main():
         ramp_time = 2000
         nsteps = int((ramp_time + prd_time) / 0.002)
         job_params[f"op_{x_star}"] = {
-            "QBAR": {"TYPE": "parabola", "STAR": x_star, "STAR_INIT": x_star_init, "KAPPA": 0.0029},
+            "QBAR": {"TYPE": "parabola", "X_STAR": x_star, "X_STAR_INIT": x_star_init, "KAPPA": 0.005, "PHI": -1.0},
             "TEMPERATURE": 300,
             "RAMP_TIME": ramp_time,
             "PRD_TIME": prd_time,
