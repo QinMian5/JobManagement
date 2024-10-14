@@ -8,7 +8,6 @@ import shlex
 import json
 import argparse
 
-
 _templates = {
     "job.sh": "job.sh",
     "grompp.mdp": "grompp.mdp",
@@ -134,8 +133,9 @@ def clean() -> None:
         for old_log_file in working_dir.glob(r"slurm*"):
             old_log_file.unlink()
             print(f"Deleted {old_log_file}")
-        old_pp_file_list = ["F_q.out", "post_processing_qbar.dat", "post_processing_with_PI.dat", "solid_like_atoms.index",
-                            "solid_like_atoms_with_PI.index", "time_samples_q.out"]
+        old_pp_file_list = ["F_q.out", "post_processing_qbar.dat", "post_processing_with_PI.dat",
+                            "solid_like_atoms.index", "solid_like_atoms_with_PI.index", "time_samples_q.out",
+                            "job_post.sh", "job_post.log", "job_post.error"]
         for old_pp_file in old_pp_file_list:
             old_file = working_dir / old_pp_file
             if old_file.exists():

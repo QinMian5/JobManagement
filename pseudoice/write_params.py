@@ -4,19 +4,18 @@ import json
 
 
 def main():
-    icing = True
-    x_star_list = list(range(100, 1701, 100))
+    x_star_list = list(range(0, 1801, 30))
     # ramp_rate = 200 / 10000
     prd_time = 3000
     job_params = {}
-    x_star_init = 0 if icing else 2000
+    x_star_init = 2000
     for x_star in x_star_list:
         delta_x_star = abs(x_star - x_star_init)
         # ramp_time = int(delta_x_star / ramp_rate)
         ramp_time = 2000
         nsteps = int((ramp_time + prd_time) / 0.002)
         job_params[f"op_{x_star}"] = {
-            "QBAR": {"TYPE": "parabola", "X_STAR": x_star, "X_STAR_INIT": x_star_init, "KAPPA": 0.005, "PHI": -1.0},
+            "QBAR": {"X_STAR": x_star, "X_STAR_INIT": x_star_init, "KAPPA": 0.05, "PHI": 0.0},
             "TEMPERATURE": 300,
             "RAMP_TIME": ramp_time,
             "PRD_TIME": prd_time,

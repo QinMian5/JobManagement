@@ -29,7 +29,7 @@ DispCorr                = EnerPres  ; apply long range dispersion corrections fo
 tcoupl                  = V-rescale
 tc-grps                 = System
 tau-t                   = 0.5
-ref-t                   = 300
+ref-t                   = ${TEMPERATURE}
 
 ; Pressure coupling
 pcoupl                  = C-rescale
