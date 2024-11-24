@@ -34,7 +34,7 @@ ref-t                   = ${TEMPERATURE}
 ; Pressure coupling
 pcoupl                  = C-rescale
 pcoupltype              = semiisotropic
-tau-p                   = 10.0
+tau-p                   = 20.0
 compressibility         = 0.0 4.5e-5    ; The compressibility for water at 1 atm and 300 K
 ref-p                   = 1.0 1.0
 refcoord_scaling        = no

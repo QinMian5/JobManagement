@@ -4,14 +4,16 @@ from pathlib import Path
 import argparse
 import json
 import pickle
+from collections import OrderedDict
 
 import numpy as np
+import pandas as pd
 import MDAnalysis as mda
 from skimage import measure
 
 
-def read_index_dict(file_path: Path) -> dict[str, list[str]]:
-    index_dict = {}
+def read_index_dict(file_path: Path) -> OrderedDict[str, list[str]]:
+    index_dict = OrderedDict()
     with open(file_path) as file:
         for line in file:
             line = line.strip().split()
@@ -23,15 +25,15 @@ def read_index_dict(file_path: Path) -> dict[str, list[str]]:
     return index_dict
 
 
-def write_index_dict(index_dict: dict[str, list[str]], file_path: Path):
+def write_index_dict(index_dict: OrderedDict[str, list[str]], file_path: Path):
     with open(file_path, 'w') as file:
         for t, indices in index_dict.items():
             file.write(f"{t} {' '.join(indices)}\n")
     print(f"Write indices to {file_path}")
 
 
-def combine_indices(indices_list: list[dict], allow_duplicate=False):
-    new_index_dict = {}
+def combine_indices(indices_list: list[OrderedDict], allow_duplicate=False):
+    new_index_dict = OrderedDict()
     if indices_list:
         for t in indices_list[0].keys():
             combined_indices = []
@@ -45,7 +47,7 @@ def combine_indices(indices_list: list[dict], allow_duplicate=False):
     return new_index_dict
 
 
-def filter_solid_like_atoms(solid_like_atoms_dict: dict):
+def filter_solid_like_atoms(solid_like_atoms_dict: OrderedDict):
     for k, v, in solid_like_atoms_dict.items():
         for i in range(len(v)):
             if int(v[i]) > 11892:
@@ -155,6 +157,29 @@ def post_processing_with_PI():
     write_index_dict(filtered_index_dict, file_path)
 
 
+def post_processing_combine_op():
+    file_op = Path("op.out")
+    method_list = ["with_PI", "chillplus"]
+    content = file_op.read_text()
+    first_line = content.splitlines()[0]
+    columns = first_line.split()[1:]  # Skip '#'
+    df = pd.read_csv("op.out", sep=r'\s+', header=None, names=columns, comment='#')
+    df_method_list = []
+    for method in method_list:
+        path_index_file = Path(f"post_processing_{method}/solid_like_atoms.index")
+        index_dict = read_index_dict(path_index_file)
+        t_list = []
+        n_list = []
+        for t, indices in index_dict.items():
+            t_list.append(float(t))
+            n_list.append(len(indices))
+        df_method = pd.DataFrame({"t[ps]": t_list, f"lambda_{method}": n_list})
+        df_method_list.append(df_method)
+    for df_method in df_method_list:
+        df = df.merge(df_method, on="t[ps]", how="inner")
+    df.to_csv("op_combined.csv", index=False)
+
+
 def post_processing_interface():
     current_path = Path.cwd()
     u = mda.Universe("../../conf.gro", "trajout.xtc")
@@ -183,6 +208,7 @@ def main():
     parser = argparse.ArgumentParser(description="Post processing.")
     parser.add_argument("--chillplus", action="store_true", help="Post processing for chillplus.")
     parser.add_argument("--with_PI", action="store_true", help="Post processing for with_PI.")
+    parser.add_argument("--combine_op", action="store_true", help="Combine op.")
     parser.add_argument("--interface", action="store_true", help="Calculate mean interface.")
 
     args = parser.parse_args()
@@ -193,6 +219,10 @@ def main():
     if args.with_PI:
         print("Processing with_PI...")
         post_processing_with_PI()
+        print("Done.")
+    if args.combine_op:
+        print("Combining op...")
+        post_processing_combine_op()
         print("Done.")
     if args.interface:
         print("Calculating mean interface...")

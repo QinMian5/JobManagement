@@ -60,5 +60,5 @@ Bias = {
 OutputFile = {
     name = op.out
     values = [ qbar.value box.N box.Ntilde bias_qbar.value ]
-    stride = 500
+    stride = 5000
 }

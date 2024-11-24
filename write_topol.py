@@ -1,5 +1,6 @@
 # Author: Mian Qin
 # Date Created: 6/8/24
+import os
 from pathlib import Path
 import shutil
 from itertools import count
@@ -8,12 +9,21 @@ import shlex
 import json
 
 
-ROOT_DIR = Path("/home/qinmian/data/gromacs/pseudoice/topol")
+run_env = os.environ.get("RUN_ENVIRONMENT")
+if run_env == "wsl":
+    home_path = Path("/home/qinmian")
+elif run_env == "chestnut":
+    home_path = Path("/home/mianqin")
+elif run_env == "mianqin_PC":
+    home_path = Path("//wsl.localhost/Ubuntu-22.04/home/qinmian")
+else:
+    raise RuntimeError(f"Unknown environment: {run_env}")
 
 
 def write(rho: float):
-    path_template = ROOT_DIR / "topol_template.top"
-    path_topol = ROOT_DIR / f"topol_{rho}.top"
+    root_dir = home_path / "data/gromacs/pseudoice/topol"
+    path_template = root_dir / "topol_template.top"
+    path_topol = root_dir / f"topol_{rho}.top"
     template_content = path_template.read_text()
 
     H_charge = 0.5897
