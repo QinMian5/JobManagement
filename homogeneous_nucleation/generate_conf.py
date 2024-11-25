@@ -7,7 +7,7 @@ from MDAnalysis.transformations import rotateby
 
 
 def _1_generate_ice():
-    lattice_target = np.array([8, 8, 8])
+    lattice_target = np.array([6, 6, 4])
     lattice_unit = np.array([0.78228388, 0.90365185, 0.73535726])
     rep = np.ceil(lattice_target / lattice_unit).astype(int)
     rep = f"{rep[0]} {rep[2]} {rep[1]}"
@@ -76,7 +76,7 @@ def _3_select_pseudo_ice():
 
 
 def _4_create_box_of_water():
-    h_z = 30.0
+    h_z = 40.0
     u_ice = mda.Universe("conf.gro")
     u_water = mda.Universe("box_of_water.gro")
 
@@ -218,10 +218,10 @@ def _5_insert_PW():
 
 def main():
     _1_generate_ice()
-    # _2_rotate_ice()
-    # _3_select_pseudo_ice()
+    _2_rotate_ice()
+    _3_select_pseudo_ice()
     # _4_create_box_of_water()
-    # _5_insert_PW()
+    _5_insert_PW()
 
 
 if __name__ == "__main__":
