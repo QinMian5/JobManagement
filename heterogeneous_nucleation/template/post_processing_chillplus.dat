@@ -1,0 +1,46 @@
+### OrderParameters input file for biasing on lambda_qbar6 ###
+
+XtcFile = ../trajout.xtc
+
+# Water oxygens
+AtomGroup = {
+    name = target
+    selection = [ atom_index 1-32768:4 ]
+    comm_type = neighbor
+}
+
+# Probe Volume
+ProbeVolume = {
+    name = box
+    type = box
+    target_atom_group = target
+    x_range = [ -1.0 10.0 ]
+    y_range = [ -1.0 10.0 ]
+    z_range = [ -1.0 10.0 ]
+    # Coarse-graining
+    sigma = 0.0
+    alpha_c = 0.0
+}
+
+# CHILL+
+Steinhardt = {
+    name = chillplus
+    type = chillplus
+    harmonic_index = 3
+    probe_volume = box
+
+    # Shifted E-bond definition
+    cij_range_E_bond = [ -0.45 0.18 ]
+
+    # Flags
+    PrintIndices = yes
+    fast_harmonics = yes
+    restrict_interfacial_categories = yes
+
+    # Neighbor Sphere
+    NeighborSphere = {
+        radius = 0.35
+        sigma = 0.0
+        alpha_c = 0.0
+  }
+}
