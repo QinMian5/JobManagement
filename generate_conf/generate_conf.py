@@ -31,6 +31,7 @@ def main():
     PI_ag.translate(ice_translation)
     SOL_ice_ag.translate(ice_translation)
     SOL_water_ag.translate(ice_translation)
+    print("Renaming atoms")
     modify_resname(PW_ag, {"SOL": "PW"})
     modify_name(PW_ag, {"OW": "O_PW", "HW1": "H_PW1", "HW2": "H_PW2", "MW": "M_PW"})
     modify_resname(PI_ag, {"ICE": "PI"})

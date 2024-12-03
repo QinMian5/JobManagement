@@ -40,10 +40,11 @@ def define_region(shape, **params):
         y_range = params["y_range"]
         z_range = params["z_range"]
         center = np.array([np.mean(x_range), np.mean(y_range), np.mean(z_range)])
-        dimensions = np.array([np.diff(x_range), np.diff(y_range), np.diff(z_range)]) / 2
+        dimensions = np.array([x_range[1] - x_range[0], y_range[1] - y_range[0], z_range[1] - z_range[0]]) / 2
 
         def cuboid_region(point):
-            return np.all(np.abs(point - center) <= dimensions, axis=-1)
+            temp = np.abs(point - center) <= dimensions
+            return np.all(temp)
 
         return Region(cuboid_region)
 
@@ -53,7 +54,7 @@ def define_region(shape, **params):
         center = np.array(params['center'])
         radius = params['radius']
         z_center = np.mean(z_range)
-        height = np.diff(z_range) / 2
+        height = (z_range[1] - z_range[0]) / 2
 
         def cylinder_region(point):
             radial_distance = np.sqrt(np.sum(np.square(point[..., :2] - center), axis=-1))
