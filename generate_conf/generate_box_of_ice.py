@@ -7,17 +7,17 @@ import numpy as np
 import MDAnalysis as mda
 from MDAnalysis.transformations import rotateby
 
+from utils import run_command_by_user
+
 
 def generate_ice():
-    lattice_target = np.array([8, 8, 8])
+    lattice_target = np.array([5, 5, 4])
     lattice_unit = np.array([0.78228388, 0.90365185, 0.73535726])
     rep = np.ceil(lattice_target / lattice_unit).astype(int)
     rep = f"{rep[0]} {rep[2]} {rep[1]}"
-    command = f"genice2 ice1h --water tip4p --format gromacs --rep {rep}"
-
-    temp_file_name = ".temp.gro"
-    with open(temp_file_name, "w") as file:
-        subprocess.run(shlex.split(command), stdout=file)
+    temp_file_name = "temp.gro"
+    command_to_run = f"genice2 ice1h --water tip4p --format gromacs --rep {rep} > {temp_file_name}"
+    run_command_by_user(command_to_run)
 
     u = mda.Universe(temp_file_name)
     rotation = rotateby(270, [1, 0, 0], ag=u.atoms)
@@ -28,9 +28,8 @@ def generate_ice():
             writer.write(u)
 
     dimensions = u.dimensions
-    command = f"gmx editconf -f {temp_file_name} -o box_of_ice.gro -c -box {dimensions[0] / 10} {dimensions[2] / 10} {dimensions[1] / 10}"
-    print(shlex.split(command))
-    subprocess.run(shlex.split(command))
+    command_to_run = f"gmx editconf -f {temp_file_name} -o box_of_ice.gro -c -box {dimensions[0] / 10} {dimensions[2] / 10} {dimensions[1] / 10}"
+    run_command_by_user(command_to_run)
     Path(temp_file_name).unlink()
 
 

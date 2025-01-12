@@ -3,7 +3,8 @@
 from utils import *
 
 
-def main():
+def generate_het():
+    # Unit: Angstrom
     h_PI = 10
     h_PW = 10
     interval_between_PW_PI = 1
@@ -37,6 +38,10 @@ def main():
     modify_resname(PI_ag, {"ICE": "PI"})
     modify_name(PI_ag, {"OW": "O_PI", "HW1": "H_PI1", "HW2": "H_PI2", "MW": "M_PI"})
     merge_atom_groups([SOL_ice_ag, SOL_water_ag, PI_ag, PW_ag])
+
+
+def main():
+    ...
 
 
 if __name__ == "__main__":

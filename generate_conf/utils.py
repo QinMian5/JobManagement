@@ -4,6 +4,12 @@ from pathlib import Path
 import numpy as np
 import MDAnalysis as mda
 # from MDAnalysis.transformations import rotateby
+import pyperclip
+
+
+def run_command_by_user(command_to_run: str):
+    pyperclip.copy(command_to_run)
+    input("Command is copied. Run command. Press Enter after finished:")
 
 
 class Region:
