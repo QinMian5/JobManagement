@@ -2,24 +2,24 @@
 
 XtcFile = ../trajout.xtc
 
-# Water oxygens
+# Oxygen atoms in water molecules
 AtomGroup = {
     name = target
-    selection = [ atom_index 1-32768:4 ]
-    comm_type = neighbor
+    selection = [ atom_index 1-17964:4 ]
 }
 
-# Probe Volume
+# Probe volume: cover the whole box
 ProbeVolume = {
     name = box
     type = box
     target_atom_group = target
-    x_range = [ -1.0 10.0 ]
-    y_range = [ -1.0 10.0 ]
-    z_range = [ -1.0 10.0 ]
-    # Coarse-graining
-    sigma = 0.0
-    alpha_c = 0.0
+
+    x_range = [ 0.7 4.5 ]
+    y_range = [ 0.7 4.5 ]
+    z_range = [ 0.7 4.3 ]
+
+    sigma = 0.01
+    alpha_c = 0.02
 }
 
 # CHILL+

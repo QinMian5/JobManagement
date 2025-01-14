@@ -142,78 +142,70 @@ def modify_name(atom_group: mda.AtomGroup, name_map: dict[str, str]):
             atom.name = new_atomname
 
 
-def merge_atom_groups(atom_groups: list[mda.AtomGroup]):
+def merge_atom_groups(atom_groups: list[mda.AtomGroup], dimensions=np.array([0, 0, 0, 90, 90, 90])):
     """
     Merges multiple MDAnalysis AtomGroups from different universes into a single new universe.
 
     :param atom_groups: List of MDAnalysis AtomGroups to be merged.
+    :param dimensions: Dimensions of the box
     :return: MDAnalysis Universe containing all atoms from the provided AtomGroups.
     """
     # Initialize lists to collect atom data
     atom_names = []
-    resnames = []
-    resids = []
-    segids = []
     positions = []
+    resnames = []
 
     # Mappings
     atom_resindex = []
-    residue_segindex = []
 
     # Counters for unique IDs
     current_residue_index = 0
-    current_segment_index = 0
 
     # Dictionaries to track unique residues and segments
     residue_dict = {}
     segment_dict = {}
 
-    for ag in atom_groups:
+    for i, ag in enumerate(atom_groups):
         for atom in ag:
             # Collect atom attributes
             atom_names.append(atom.name)
-            resnames.append(atom.resname)
             positions.append(atom.position)
 
             # Handle residues
-            resid = (atom.segid, atom.resid)
+            resid = (i, atom.resid)
             if resid not in residue_dict:
+                resnames.append(atom.resname)
                 residue_dict[resid] = current_residue_index
                 current_residue_index += 1
             atom_resindex.append(residue_dict[resid])
 
-            # Handle segments
-            segid = atom.segid
-            if segid not in segment_dict:
-                segment_dict[segid] = current_segment_index
-                current_segment_index += 1
-
     # Create residue_segindex mapping
-    residue_segindex = [segment_dict[resid[0]] for resid in residue_dict.keys()]
+    # residue_segindex = [segment_dict[segid] for segid, _ in residue_dict.keys()]
+
+    resids = list(residue_dict.values())
 
     n_atoms = len(atom_names)
     n_residues = current_residue_index
-    n_segments = current_segment_index
 
     # Create the new Universe
-    new_universe = mda.Universe.empty(
+    merged_universe = mda.Universe.empty(
         n_atoms,
         n_residues=n_residues,
-        n_segments=n_segments,
+        n_segments=1,
         atom_resindex=atom_resindex,
-        residue_segindex=residue_segindex,
+        # residue_segindex=1,
         trajectory=True,
     )
 
     # Add topology attributes
-    new_universe.add_TopologyAttr('name', atom_names)
-    new_universe.add_TopologyAttr('resname', resnames)
-    new_universe.add_TopologyAttr('segid', list(segment_dict.keys()))
+    merged_universe.add_TopologyAttr('name', atom_names)
+    merged_universe.add_TopologyAttr('resname', resnames)
+    merged_universe.add_TopologyAttr('resid', resids)
 
     # Load positions
-    new_universe.load_new(np.array(positions), order="fac")
-
-    return new_universe
+    merged_universe.atoms.positions = np.array(positions)
+    merged_universe.dimensions = dimensions
+    return merged_universe
 
 
 def main():

@@ -184,8 +184,8 @@ def post_processing_interface():
     current_path = Path.cwd()
     u = mda.Universe("../../conf.gro", "trajout.xtc")
     x_max, y_max, z_max = u.dimensions[:3]
-    x_range, y_range, z_range = (0, x_max), (0, y_max), (0, z_max)
-    pos_grid, scale, offset = generate_grid(x_range, y_range, z_range, n_x=70, n_y=70, n_z=70)
+    x_range, y_range, z_range = (7, x_max - 7), (7, y_max - 7), (40, 70)
+    pos_grid, scale, offset = generate_grid(x_range, y_range, z_range, n_x=40, n_y=40, n_z=30)
     index_path = Path("post_processing_chillplus/solid_like_atoms.index")
     index_dict = filter_solid_like_atoms(read_index_dict(index_path))
 

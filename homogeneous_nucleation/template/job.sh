@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --partition=p_pamish
-#SBATCH --job-name="op_${QBAR.X_STAR}"
+#SBATCH --job-name="hom_${QBAR.X_STAR}"
 #SBATCH --output=job.log
 #SBATCH --error=job.error
 #SBATCH --nodes=1
