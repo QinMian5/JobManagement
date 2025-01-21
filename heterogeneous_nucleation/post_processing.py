@@ -5,6 +5,7 @@ import argparse
 import json
 import pickle
 from collections import OrderedDict
+from itertools import product
 
 import numpy as np
 import pandas as pd
@@ -50,7 +51,7 @@ def combine_indices(indices_list: list[OrderedDict], allow_duplicate=False):
 def filter_solid_like_atoms(solid_like_atoms_dict: OrderedDict):
     for k, v, in solid_like_atoms_dict.items():
         for i in range(len(v)):
-            if int(v[i]) > 32768:
+            if int(v[i]) > 15784:
                 solid_like_atoms_dict[k] = v[:i]
                 break
     return solid_like_atoms_dict
@@ -64,44 +65,74 @@ def calc_scale_offset(x_range: tuple[float, float], n_x: int) \
     return scale, offset
 
 
-def generate_grid(x_range: tuple[float, float], y_range: tuple[float, float], z_range: tuple[float, float],
-                  n_x: int = 50, n_y: int = 50, n_z: int = 50):
-    x_scale, x_offset = calc_scale_offset(x_range, n_x)
-    y_scale, y_offset = calc_scale_offset(y_range, n_y)
-    z_scale, z_offset = calc_scale_offset(z_range, n_z)
+def generate_grid(x_range: tuple[float, float], y_range: tuple[float, float], z_range: tuple[float, float], step: float):
+    n_x = int(np.ceil((x_range[1] - x_range[0]) / step))
+    n_y = int(np.ceil((y_range[1] - y_range[0]) / step))
+    n_z = int(np.ceil((z_range[1] - z_range[0]) / step))
+    L_x = n_x * step
+    L_y = n_y * step
+    L_z = n_z * step
+    new_x_range = x_range[0] - (L_x - (x_range[1] - x_range[0])) / 2, x_range[1] + (L_x - (x_range[1] - x_range[0])) / 2
+    new_y_range = y_range[0] - (L_y - (y_range[1] - y_range[0])) / 2, y_range[1] + (L_y - (y_range[1] - y_range[0])) / 2
+    new_z_range = z_range[0] - (L_z - (z_range[1] - z_range[0])) / 2, z_range[1] + (L_z - (z_range[1] - z_range[0])) / 2
+    x_scale, x_offset = calc_scale_offset(new_x_range, n_x)
+    y_scale, y_offset = calc_scale_offset(new_y_range, n_y)
+    z_scale, z_offset = calc_scale_offset(new_z_range, n_z)
     scale = np.array([x_scale, y_scale, z_scale]).reshape(1, 3)
     offset = np.array([x_offset, y_offset, z_offset]).reshape(1, 3)
-    x, y, z = np.linspace(*x_range, n_x), np.linspace(*y_range, n_y), np.linspace(*z_range, n_z)
+    x, y, z = np.linspace(*new_x_range, n_x), np.linspace(*new_y_range, n_y), np.linspace(*new_z_range, n_z)
     X, Y, Z = np.meshgrid(x, y, z)
     pos_grid = np.stack((X, Y, Z), axis=3)
     return pos_grid, scale, offset
 
 
-def wrap_position_vector_array(position_vector_array: np.ndarray, box_size: np.ndarray):
-    half_box_size = box_size / 2
-    lt = position_vector_array < -half_box_size
-    gt = position_vector_array > half_box_size
-    position_vector_array += lt * box_size
-    position_vector_array -= gt * box_size
-    return position_vector_array
+def wrap_pos_vec_array(pos_vec_array: np.ndarray, box_size: np.ndarray, mode: str = "closest"):
+    if mode == "closest":
+        return pos_vec_array - np.round(pos_vec_array / box_size) * box_size
+    elif mode == "positive":
+        return pos_vec_array - np.floor(pos_vec_array / box_size) * box_size
+    elif mode == "negative":
+        return pos_vec_array + np.ceil(pos_vec_array / box_size) * box_size
+    else:
+        raise ValueError("Invalid mode. Choose from 'closest', 'positive', or 'negative'.")
 
 
-def calc_concentration(pos_ice: np.ndarray, pos_grid: np.ndarray,
+def calc_concentration(pos_atom: np.ndarray, pos_grid: np.ndarray,
                        box_size: np.ndarray, ksi: float) -> np.ndarray:
     """
 
-    :param pos_ice: Positions of O atoms in ice-like molecules. Shape: (N, 3)
+    :param pos_atom: Positions of O atoms. Shape: (N, 3)
     :param pos_grid: Positions of grids. Shape: (X, Y, Z, 3)
     :param box_size: Size of the box. Shape: (3)
     :param ksi:
     :return: Shape: (X, Y ,Z)
     """
-    position_vector_array = np.expand_dims(pos_grid, axis=3) - np.expand_dims(pos_ice, axis=(0, 1, 2))
-    wrapped_position_vector_array = wrap_position_vector_array(position_vector_array, box_size)
-    distance_array = np.linalg.norm(wrapped_position_vector_array, axis=4)
-    concentration = np.sum(1 / ((np.sqrt(2 * np.pi) * ksi) ** 3) * np.exp(-distance_array ** 2 / (2 * ksi ** 2)),
-                           axis=3)
-    return concentration
+    cutoff = 3 * ksi
+    grid_size = pos_grid[-1, -1, -1] - pos_grid[0, 0, 0]
+    n_x, n_y, n_z = np.ceil(grid_size / (cutoff * 2)).astype(int)
+    concentrations = [[[None for _ in range(n_z)] for _ in range(n_y)] for _ in range(n_x)]
+    sub_grids = np.array_split(pos_grid, n_x, axis=0)  # 沿 x 轴划分
+    sub_grids = [np.array_split(sub_grid, n_y, axis=1) for sub_grid in sub_grids]  # 沿 y 轴划分
+    sub_grids = [[np.array_split(sub_sub_grid, n_z, axis=2) for sub_sub_grid in sub_grid] for sub_grid in sub_grids]
+
+    for i, j, k in product(range(n_x), range(n_y), range(n_z)):
+        sub_grid = sub_grids[i][j][k]
+        corner1 = sub_grid[0, 0, 0] - cutoff
+        corner2 = sub_grid[-1, -1, -1] + cutoff
+        pos_vec_to_corner1 = wrap_pos_vec_array(pos_atom - corner1, box_size, mode="positive")
+        pos_vec_to_corner2 = wrap_pos_vec_array(pos_atom - corner2, box_size, mode="negative")
+        in_box1 = np.all(pos_vec_to_corner1 < corner2 - corner1, axis=1)
+        in_box2 = np.all(pos_vec_to_corner2 > -(corner2 - corner1), axis=1)
+        in_box = np.logical_and(in_box1, in_box2)
+        sub_atom = pos_atom[in_box]
+
+        pos_vec_array = np.expand_dims(sub_grid, axis=3) - np.expand_dims(sub_atom, axis=(0, 1, 2))
+        wrapped_pos_vec_array = wrap_pos_vec_array(pos_vec_array, box_size)
+        distance_array = np.linalg.norm(wrapped_pos_vec_array, axis=4)
+        concentration = np.sum(1 / ((np.sqrt(2 * np.pi) * ksi) ** 3) * np.exp(-distance_array ** 2 / (2 * ksi ** 2)), axis=3)
+        concentrations[i][j][k] = concentration
+    concentrations = np.concatenate([np.concatenate([np.concatenate(sub_sub_con, axis=2) for sub_sub_con in sub_con], axis=1) for sub_con in concentrations], axis=0)
+    return concentrations
 
 
 def generate_interface_from_concentration(concentration: np.ndarray, level=0.015) \
@@ -125,6 +156,7 @@ def calc_interface_in_t_range(u: mda.Universe, solid_like_atoms_dict: dict[str, 
             solid_like_atoms = u.select_atoms(f"bynum {' '.join(solid_like_atoms_id)}")
             pos_ice = solid_like_atoms.positions
             concentration = calc_concentration(pos_ice, pos_grid, u.dimensions[:3], ksi)
+            # TODO
             nodes, faces = generate_interface_from_concentration(concentration)
             nodes = nodes * scale + offset
         else:
@@ -184,8 +216,9 @@ def post_processing_interface():
     current_path = Path.cwd()
     u = mda.Universe("../../conf.gro", "trajout.xtc")
     x_max, y_max, z_max = u.dimensions[:3]
-    x_range, y_range, z_range = (7, x_max - 7), (7, y_max - 7), (40, 70)
-    pos_grid, scale, offset = generate_grid(x_range, y_range, z_range, n_x=40, n_y=40, n_z=30)
+    step = 0.5
+    x_range, y_range, z_range = (7 - 2, x_max - 7 + 2), (7 - 2, y_max -7 + 2), (40 - 2, 70 + 2)
+    pos_grid, scale, offset = generate_grid(x_range, y_range, z_range, step=step)
     index_path = Path("post_processing_chillplus/solid_like_atoms.index")
     index_dict = filter_solid_like_atoms(read_index_dict(index_path))
 
