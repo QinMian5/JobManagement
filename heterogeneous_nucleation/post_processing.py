@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import MDAnalysis as mda
 from skimage import measure
+import freud
 
 
 def read_index_dict(file_path: Path) -> OrderedDict[str, list[str]]:
@@ -63,7 +64,7 @@ def combine_indices(indices_list: list[OrderedDict], allow_duplicate=False):
 def filter_solid_like_atoms(solid_like_atoms_dict: OrderedDict):
     for k, v, in solid_like_atoms_dict.items():
         for i in range(len(v)):
-            if int(v[i]) > 15784:
+            if int(v[i]) > 3946 * 4:
                 solid_like_atoms_dict[k] = v[:i]
                 break
     return solid_like_atoms_dict
@@ -124,6 +125,10 @@ def calc_concentration_at_point(pos_atoms: np.ndarray, pos_points: np.ndarray, b
     :param ksi: Variance of Gaussian
     :return:
     """
+    box = freud.box.Box.from_box(box_size)
+    aq = freud.locality.AABBQuery(box, pos_atoms)
+    r_max = 3 * ksi
+    nlist = aq.query(pos_points, {"r_max": r_max}).toNeighborList()
     pos_vec_array = np.expand_dims(pos_points, axis=1) - np.expand_dims(pos_atoms, axis=0)
     wrapped_pos_vec_array = wrap_pos_vec_array(pos_vec_array, box_size)
     distance_array = np.linalg.norm(wrapped_pos_vec_array, axis=2)
