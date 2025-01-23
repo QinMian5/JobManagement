@@ -5,7 +5,6 @@ import argparse
 import json
 import pickle
 from collections import OrderedDict
-from itertools import product
 
 import numpy as np
 import pandas as pd
@@ -13,6 +12,7 @@ from scipy.interpolate import RegularGridInterpolator
 import MDAnalysis as mda
 from skimage import measure
 import freud
+import networkx as nx
 
 
 def read_index_dict(file_path: Path) -> OrderedDict[str, list[str]]:
@@ -69,6 +69,88 @@ def filter_solid_like_atoms(solid_like_atoms_dict: OrderedDict):
                 solid_like_atoms_dict[k] = v[:i]
                 break
     return solid_like_atoms_dict
+
+
+def generate_graph(pos_atoms: np.ndarray, ids: np.ndarray, box_size, type2indices: dict[str, list[int]],
+                   threshold_edge=3.5) -> nx.Graph:
+    """
+
+    :param pos_atoms: Positions of atoms. Shape: (N, 3)
+    :param ids: Indices of atoms. Shape: (N)
+    :param box_size:
+    :param type2indices: Ice/Water/Surface
+    :param threshold_edge: In Angstrom
+    :return:
+    """
+    box = freud.box.Box.from_box(box_size)
+    aq = freud.locality.AABBQuery(box, pos_atoms)
+    r_max = threshold_edge
+    nlist = aq.query(pos_atoms, {"r_max": r_max, "r_min": 0.1}).toNeighborList()
+    i_array = nlist.point_indices
+    j_array = nlist.query_point_indices
+    non_duplicate_index = np.where(i_array < j_array)
+    i_array = i_array[non_duplicate_index]
+    j_array = j_array[non_duplicate_index]
+
+    i_ids_array = ids[i_array]
+    j_ids_array = ids[j_array]
+
+    G = nx.Graph()
+    for t, indices in type2indices.items():
+        G.add_nodes_from(indices, type=t)
+    G.add_edges_from(list(zip(i_ids_array, j_ids_array)))
+    return G
+
+
+def correct_ice_index(path_to_conf: Path, path_to_traj: Path, path_to_index: Path, t_range: tuple) -> tuple[dict, dict]:
+    u = mda.Universe(path_to_conf, path_to_traj)
+    ice_index_dict = _filter_solid_like_atoms(read_solid_like_atoms(path_to_index))
+    new_ice_index_dict = {}
+    new_water_index_dict = {}
+    for ts in tqdm(u.trajectory, desc="Frame"):
+        # if f"{ts.time:.1f}" != "4020.0":
+        #     continue
+        if ts.time < t_range[0] or ts.time > t_range[1]:
+            new_ice_index_dict[f"{ts.time:.1f}"] = []
+            new_water_index_dict[f"{ts.time:.1f}"] = []
+            continue
+        ice_index = ice_index_dict[f"{ts.time:.1f}"]
+        O_atoms_all = u.select_atoms("name OW")
+        if len(ice_index) == 0:
+            O_atoms_water = O_atoms_all
+            O_atoms_ice = O_atoms_all - O_atoms_water
+        else:
+            O_atoms_ice = u.select_atoms(f"bynum {' '.join(ice_index)}")
+            O_atoms_water = O_atoms_all - O_atoms_ice
+        O_atoms_surface = u.select_atoms("name O_PI")
+        pos_ice = O_atoms_ice.positions
+        pos_water = O_atoms_water.positions
+        pos_surface = O_atoms_surface.positions
+        box_size = u.dimensions[:3]
+        pos_atoms = np.concatenate((pos_ice, pos_water, pos_surface))
+        ids = np.concatenate((O_atoms_ice.ids, O_atoms_water.ids, O_atoms_surface.ids))
+        type2indices = {"ice": O_atoms_ice.ids,
+                        "water": O_atoms_water.ids,
+                        "surface": O_atoms_surface.ids}
+        G = generate_graph(pos_atoms, ids, box_size, type2indices)
+
+        surface_water_to_ice_array = _correct_surface_water2ice(G)
+        G = update_graph(G, {"ice": surface_water_to_ice_array})
+        bulk_water_to_ice_array, bulk_ice_to_water_array = _correct_bulk(G)
+        water_to_ice_array = np.concatenate((surface_water_to_ice_array, bulk_water_to_ice_array))
+        ice_to_water_array = bulk_ice_to_water_array
+        new_ice_index = [str(x) for x in water_to_ice_array]
+        new_water_index = [str(x) for x in ice_to_water_array]
+
+        # bulk_water_to_ice_array, bulk_ice_to_water_array = _correct_bulk(G)
+        # new_ice_array = np.concatenate((surface_water_to_ice_array, bulk_water_to_ice_array), axis=0)
+        # new_water_array = bulk_ice_to_water_array
+        # new_ice_index = [str(x) for x in new_ice_array]
+        # new_water_index = [str(x) for x in new_water_array]
+
+        new_ice_index_dict[f"{ts.time:.1f}"] = new_ice_index
+        new_water_index_dict[f"{ts.time:.1f}"] = new_water_index
+    return new_ice_index_dict, new_water_index_dict
 
 
 def calc_scale_offset(x_range: tuple[float, float], n_x: int) \
@@ -223,11 +305,10 @@ def post_processing_chillplus():
     write_index_dict(new_index_dict, Path("solid_like_atoms.index"))
 
 
-# def post_processing_with_PI():
-#     file_path = Path("solid_like_atoms.index")
-#     index_dict = read_index_dict(file_path)
-#     filtered_index_dict = filter_solid_like_atoms(index_dict)
-#     write_index_dict(filtered_index_dict, file_path)
+def post_processing_correct_ice():
+    path_to_conf = Path("../../conf.gro")
+    path_to_traj = Path("./trajout.xtc")
+    path_to_index: Path
 
 
 def post_processing_combine_op():
@@ -282,6 +363,7 @@ def post_processing_interface():
 def main():
     parser = argparse.ArgumentParser(description="Post processing.")
     parser.add_argument("--chillplus", action="store_true", help="Post processing for chillplus.")
+    parser.add_argument("--correct_ice", action="store_true", help="Correct ice.")
     parser.add_argument("--combine_op", action="store_true", help="Combine op.")
     parser.add_argument("--interface", action="store_true", help="Calculate mean interface.")
 
@@ -289,6 +371,9 @@ def main():
     if args.chillplus:
         print("Processing chillplus...")
         post_processing_chillplus()
+        print("Done.")
+    if args.correct_ice:
+        print("Correcting ice...")
         print("Done.")
     if args.combine_op:
         print("Combining op...")
