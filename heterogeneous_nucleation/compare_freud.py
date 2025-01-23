@@ -14,9 +14,9 @@ def main():
     O_ag = u.select_atoms("resname SOL and name OW")
     pos = O_ag.positions
     aq = freud.locality.AABBQuery(box, pos)
-    r_max = 3.0
+    r_max = 5.0
     nlist = aq.query(pos, {"r_max": r_max}).toNeighborList()
-    print(nlist)
+    print()
 
 
 if __name__ == "__main__":
