@@ -416,7 +416,7 @@ def post_processing_with_PI():
 def post_processing_correct_ice():
     path_to_conf = Path("../../conf.gro")
     path_to_traj = Path("./trajout.xtc")
-    method_list = ["chillplus"]
+    method_list = ["chillplus", "with_PI"]
     for method in method_list:
         method_folder = Path(f"./post_processing_{method}")
         path_to_index = method_folder / "solid_like_atoms.index"
@@ -439,7 +439,7 @@ def post_processing_correct_ice():
 
 def post_processing_combine_op():
     file_op = Path("op.out")
-    method_list = ["chillplus"]
+    method_list = ["chillplus", "with_PI"]
     content = file_op.read_text()
     first_line = content.splitlines()[0]
     columns = first_line.split()[1:]  # Skip '#'
@@ -467,7 +467,7 @@ def post_processing_interface():
     step = 1.0
     x_range, y_range, z_range = (7 - 2, x_max - 7 + 2), (7 - 2, y_max - 7 + 2), (40 - 5, 70 + 2)
     pos_grid, scale, offset = generate_grid(x_range, y_range, z_range, step=step)
-    index_path = Path("post_processing_chillplus/solid_like_atoms.index")
+    index_path = Path("post_processing_with_PI/solid_like_atoms.index")
     index_dict = filter_solid_like_atoms(read_index_dict(index_path))
 
     with open(current_path.parent.parent / "job_params.json", 'r') as file:

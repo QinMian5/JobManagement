@@ -29,5 +29,11 @@ echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -s topol.tpr -pbc mol -center
     python ../../../post_processing.py --chillplus
 )
 
+(
+    cd post_processing_with_PI || exit
+    OrderParameters post_processing_with_PI.dat
+    python ../../../post_processing.py --with_PI
+)
+
 python ../../post_processing.py --combine_op
 python ../../post_processing.py --interface
