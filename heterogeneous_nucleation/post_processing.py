@@ -5,6 +5,7 @@ import argparse
 import json
 import pickle
 from collections import OrderedDict
+import inspect
 
 import numpy as np
 import pandas as pd
@@ -102,18 +103,118 @@ def generate_graph(pos_atoms: np.ndarray, ids: np.ndarray, box_size, type2indice
     return G
 
 
-def correct_ice_index(path_to_conf: Path, path_to_traj: Path, path_to_index: Path, t_range: tuple) -> tuple[dict, dict]:
+def update_graph(G: nx.Graph, type2indices: dict):
+    for t, indices in type2indices.items():
+        for index in indices:
+            G.nodes[index]["type"] = t
+    return G
+
+
+def _correct_bulk(G: nx.Graph, max_iter=10) -> tuple[np.ndarray, np.ndarray]:
+    _type_to_index = {"ice": 0, "water": 1, "surface": 2}
+
+    new_ice_array = np.zeros(len(G.nodes))
+    new_water_array = np.zeros(len(G.nodes))
+    node_type_array = np.zeros((len(G.nodes), len(_type_to_index)), dtype=int)
+    for i, node in enumerate(G.nodes):
+        node_type = G.nodes[node]["type"]
+        node_type_array[i][_type_to_index[node_type]] = 1
+
+    adj_matrix_first_shell = nx.to_scipy_sparse_array(G)
+    adj_matrix2 = adj_matrix_first_shell @ adj_matrix_first_shell
+    adj_matrix_two_shell = adj_matrix_first_shell + adj_matrix2
+    adj_matrix_two_shell.setdiag(0)  # Exclude self
+    adj_matrix_two_shell.data = np.minimum(adj_matrix_two_shell.data, 1)
+    adj_matrix_two_shell.eliminate_zeros()
+    is_surface = node_type_array[:, _type_to_index["surface"]]
+    n_surface_two_shell = adj_matrix_two_shell @ is_surface
+    cond_surface = n_surface_two_shell >= 1
+    for i in range(max_iter):
+        # adj_matrix_second_shell = adj_matrix_two_shell - adj_matrix_first_shell
+        # adj_matrix_second_shell.eliminate_zeros()
+        is_ice = node_type_array[:, _type_to_index["ice"]]
+        is_water = node_type_array[:, _type_to_index["water"]]
+        n_ice_two_shell = adj_matrix_two_shell @ is_ice
+        n_water_two_shell = adj_matrix_two_shell @ is_water
+        n_mobile_two_shell = n_ice_two_shell + n_water_two_shell
+        cond_bulk = ~cond_surface & (n_mobile_two_shell >= 8)
+
+        water_to_ice = is_water & cond_bulk & (n_water_two_shell <= 2)
+        ice_to_water = is_ice & cond_bulk & (n_ice_two_shell <= 2)
+
+        if water_to_ice.sum() + ice_to_water.sum() == 0:  # converge
+            break
+        node_type_array[:, _type_to_index["ice"]] += water_to_ice
+        node_type_array[:, _type_to_index["water"]] -= water_to_ice
+        node_type_array[:, _type_to_index["water"]] += ice_to_water
+        node_type_array[:, _type_to_index["ice"]] -= ice_to_water
+        new_ice_array += water_to_ice
+        new_water_array += ice_to_water
+    else:
+        print(f"{inspect.currentframe().f_code.co_name}: Failed to converge after {max_iter} iterations.")
+    node_index_array = np.array(G.nodes())
+    water_to_ice_array = node_index_array[new_ice_array.astype(bool)]
+    ice_to_water_array = node_index_array[new_water_array.astype(bool)]
+    return water_to_ice_array, ice_to_water_array
+
+
+def _correct_surface_water2ice(G: nx.Graph, max_iter=20) -> np.ndarray:
+    _type_to_index = {"ice": 0, "water": 1, "surface": 2, "maybe_ice": 3}
+
+    new_ice_array = np.zeros(len(G.nodes)).astype(bool)
+    node_type_array = np.zeros((len(G.nodes), len(_type_to_index)), dtype=bool)
+    for i, node in enumerate(G.nodes):
+        node_type = G.nodes[node]["type"]
+        node_type_array[i][_type_to_index[node_type]] = True
+
+    adj_matrix_first_shell = nx.to_scipy_sparse_array(G)
+    adj_matrix2 = adj_matrix_first_shell @ adj_matrix_first_shell
+    adj_matrix3 = adj_matrix2 @ adj_matrix_first_shell
+    adj_matrix_two_shell = adj_matrix_first_shell + adj_matrix2
+    adj_matrix_two_shell.setdiag(0)  # Exclude self
+    adj_matrix_two_shell.data = np.minimum(adj_matrix_two_shell.data, 1)
+    adj_matrix_two_shell.eliminate_zeros()
+    adj_matrix_three_shell = adj_matrix_two_shell + adj_matrix3
+    adj_matrix_three_shell.setdiag(0)
+    adj_matrix_three_shell.data = np.minimum(adj_matrix_three_shell.data, 1)
+    adj_matrix_three_shell.eliminate_zeros()
+    is_surface = node_type_array[:, _type_to_index["surface"]]
+    n_surface_two_shell = adj_matrix_two_shell @ is_surface
+    cond_surface = n_surface_two_shell >= 1
+
+    update_n_list = []
+    for i in range(max_iter):
+        is_true_ice = node_type_array[:, _type_to_index["ice"]] & ~cond_surface | new_ice_array
+        is_true_water = node_type_array[:, _type_to_index["water"]] & ~cond_surface
+        n_true_ice_two_shell = adj_matrix_two_shell @ is_true_ice
+        n_true_water_two_shell = adj_matrix_two_shell @ is_true_water
+        maybe_ice = cond_surface & node_type_array[:, _type_to_index["water"]]
+        maybe_ice_to_ice = maybe_ice & (n_true_ice_two_shell > n_true_water_two_shell) & (n_true_water_two_shell <= 2)
+        if np.sum(maybe_ice_to_ice) == 0:
+            break
+        update_n_list.append(np.sum(maybe_ice_to_ice))
+        new_ice_array |= maybe_ice_to_ice
+        node_type_array[:, _type_to_index["ice"]] |= maybe_ice_to_ice
+        node_type_array[:, _type_to_index["water"]] &= ~maybe_ice_to_ice
+    else:
+        print(f"{inspect.currentframe().f_code.co_name}: Failed to converge after {max_iter} iterations.")
+        print(update_n_list)
+    node_index_array = np.array(G.nodes())
+    water_to_ice_array = node_index_array[new_ice_array.astype(bool)]
+    return water_to_ice_array
+
+
+def correct_ice_index(path_to_conf: Path, path_to_traj: Path, path_to_index: Path, correct_surface=True,
+                      correct_bulk=True) -> tuple[OrderedDict, OrderedDict]:
     u = mda.Universe(path_to_conf, path_to_traj)
-    ice_index_dict = _filter_solid_like_atoms(read_solid_like_atoms(path_to_index))
-    new_ice_index_dict = {}
-    new_water_index_dict = {}
-    for ts in tqdm(u.trajectory, desc="Frame"):
+    ice_index_dict = filter_solid_like_atoms(read_index_dict(path_to_index))
+    new_ice_index_dict = OrderedDict()
+    new_water_index_dict = OrderedDict()
+    for ts in u.trajectory:
+        if int(float(ts.time)) % 500 == 0:
+            print(ts.time)
         # if f"{ts.time:.1f}" != "4020.0":
         #     continue
-        if ts.time < t_range[0] or ts.time > t_range[1]:
-            new_ice_index_dict[f"{ts.time:.1f}"] = []
-            new_water_index_dict[f"{ts.time:.1f}"] = []
-            continue
         ice_index = ice_index_dict[f"{ts.time:.1f}"]
         O_atoms_all = u.select_atoms("name OW")
         if len(ice_index) == 0:
@@ -134,19 +235,19 @@ def correct_ice_index(path_to_conf: Path, path_to_traj: Path, path_to_index: Pat
                         "surface": O_atoms_surface.ids}
         G = generate_graph(pos_atoms, ids, box_size, type2indices)
 
-        surface_water_to_ice_array = _correct_surface_water2ice(G)
-        G = update_graph(G, {"ice": surface_water_to_ice_array})
-        bulk_water_to_ice_array, bulk_ice_to_water_array = _correct_bulk(G)
-        water_to_ice_array = np.concatenate((surface_water_to_ice_array, bulk_water_to_ice_array))
-        ice_to_water_array = bulk_ice_to_water_array
-        new_ice_index = [str(x) for x in water_to_ice_array]
-        new_water_index = [str(x) for x in ice_to_water_array]
+        new_water_list = []
+        new_ice_list = []
+        if correct_surface:
+            surface_water_to_ice_array = _correct_surface_water2ice(G)
+            new_ice_list.append(surface_water_to_ice_array)
+            G = update_graph(G, {"ice": surface_water_to_ice_array})
+        if correct_bulk:
+            bulk_water_to_ice_array, bulk_ice_to_water_array = _correct_bulk(G)
+            new_ice_list.append(bulk_water_to_ice_array)
+            new_water_list.append(bulk_ice_to_water_array)
 
-        # bulk_water_to_ice_array, bulk_ice_to_water_array = _correct_bulk(G)
-        # new_ice_array = np.concatenate((surface_water_to_ice_array, bulk_water_to_ice_array), axis=0)
-        # new_water_array = bulk_ice_to_water_array
-        # new_ice_index = [str(x) for x in new_ice_array]
-        # new_water_index = [str(x) for x in new_water_array]
+        new_ice_index = [str(x) for new_ice in new_ice_list for x in new_ice]
+        new_water_index = [str(x) for new_water in new_water_list for x in new_water]
 
         new_ice_index_dict[f"{ts.time:.1f}"] = new_ice_index
         new_water_index_dict[f"{ts.time:.1f}"] = new_water_index
@@ -305,10 +406,35 @@ def post_processing_chillplus():
     write_index_dict(new_index_dict, Path("solid_like_atoms.index"))
 
 
+def post_processing_with_PI():
+    file_path = Path("solid_like_atoms.index")
+    index_dict = read_index_dict(file_path)
+    filtered_index_dict = filter_solid_like_atoms(index_dict)
+    write_index_dict(filtered_index_dict, file_path)
+
+
 def post_processing_correct_ice():
     path_to_conf = Path("../../conf.gro")
     path_to_traj = Path("./trajout.xtc")
-    path_to_index: Path
+    method_list = ["chillplus"]
+    for method in method_list:
+        method_folder = Path(f"./post_processing_{method}")
+        path_to_index = method_folder / "solid_like_atoms.index"
+        new_ice_save_path = method_folder / "new_ice.index"
+        new_water_save_path = method_folder / "new_water.index"
+        ice_save_path = method_folder / "corrected_ice.index"
+        water_save_path = method_folder / "corrected_water.index"
+        new_ice_index_dict, new_water_index_dict = correct_ice_index(path_to_conf, path_to_traj, path_to_index)
+
+        write_index_dict(new_ice_index_dict, new_ice_save_path)
+        write_index_dict(new_water_index_dict, new_water_save_path)
+
+        ice_index_dict = filter_solid_like_atoms(read_index_dict(path_to_index))
+        corrected_ice_dict = combine_indices([ice_index_dict, new_ice_index_dict])
+        corrected_water_index_dict = OrderedDict(
+            (k, get_water_indices(ice_index)) for k, ice_index in corrected_ice_dict.items())
+        write_index_dict(corrected_ice_dict, ice_save_path)
+        write_index_dict(corrected_water_index_dict, water_save_path)
 
 
 def post_processing_combine_op():
@@ -339,7 +465,7 @@ def post_processing_interface():
     u = mda.Universe("../../conf.gro", "trajout.xtc")
     x_max, y_max, z_max = u.dimensions[:3]
     step = 1.0
-    x_range, y_range, z_range = (7 - 2, x_max - 7 + 2), (7 - 2, y_max - 7 + 2), (40 + 2, 70 + 2)
+    x_range, y_range, z_range = (7 - 2, x_max - 7 + 2), (7 - 2, y_max - 7 + 2), (40 - 5, 70 + 2)
     pos_grid, scale, offset = generate_grid(x_range, y_range, z_range, step=step)
     index_path = Path("post_processing_chillplus/solid_like_atoms.index")
     index_dict = filter_solid_like_atoms(read_index_dict(index_path))
@@ -363,6 +489,7 @@ def post_processing_interface():
 def main():
     parser = argparse.ArgumentParser(description="Post processing.")
     parser.add_argument("--chillplus", action="store_true", help="Post processing for chillplus.")
+    parser.add_argument("--with_PI", action="store_true", help="Post processing for with_PI.")
     parser.add_argument("--correct_ice", action="store_true", help="Correct ice.")
     parser.add_argument("--combine_op", action="store_true", help="Combine op.")
     parser.add_argument("--interface", action="store_true", help="Calculate mean interface.")
@@ -372,8 +499,13 @@ def main():
         print("Processing chillplus...")
         post_processing_chillplus()
         print("Done.")
+    if args.with_PI:
+        print("Processing with_PI...")
+        post_processing_with_PI()
+        print("Done.")
     if args.correct_ice:
         print("Correcting ice...")
+        post_processing_correct_ice()
         print("Done.")
     if args.combine_op:
         print("Combining op...")
