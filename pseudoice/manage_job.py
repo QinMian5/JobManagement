@@ -13,15 +13,15 @@ _templates = {
     "grompp.mdp": "grompp.mdp",
     "order_parameters.dat": "order_parameters.dat",
     "post_processing_qbar.dat": "post_processing_qbar/post_processing_qbar.dat",
+    "post_processing_chillplus.dat": "post_processing_chillplus/post_processing_chillplus.dat",
     "post_processing_with_PI.dat": "post_processing_with_PI/post_processing_with_PI.dat",
-    "post_processing_chillplus.dat": "post_processing_chillplus/post_processing_chillplus.dat"
 }
 _files_to_gather = {
     "op.out": "op.out",
     "trajout.xtc": "trajout.xtc",
     "post_processing_qbar/solid_like_atoms.index": "solid_like_atoms_qbar.index",
-    "post_processing_with_PI/solid_like_atoms.index": "solid_like_atoms_with_PI.index",
     "post_processing_chillplus/solid_like_atoms.index": "solid_like_atoms_chillplus.index",
+    "post_processing_with_PI/solid_like_atoms.index": "solid_like_atoms_with_PI.index",
     "op_combined.csv": "op_combined.csv",
     "interface.pickle": "interface.pickle",
     "instantaneous_interface.pickle": "instantaneous_interface.pickle",
