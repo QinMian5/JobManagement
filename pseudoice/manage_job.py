@@ -22,6 +22,7 @@ _files_to_gather = {
     "post_processing_qbar/solid_like_atoms.index": "solid_like_atoms_qbar.index",
     "post_processing_chillplus/solid_like_atoms.index": "solid_like_atoms_chillplus.index",
     "post_processing_with_PI/solid_like_atoms.index": "solid_like_atoms_with_PI.index",
+    "post_processing_with_PI/corrected_ice.index": "solid_like_atoms_with_PI_corrected.index",
     "op_combined.csv": "op_combined.csv",
     "interface.pickle": "interface.pickle",
     "instantaneous_interface.pickle": "instantaneous_interface.pickle",
@@ -115,7 +116,10 @@ def gather() -> None:
             src_path = path_src_dir / src_filename
             dst_path = path_dst_dir / dst_filename
             dst_path.parent.mkdir(exist_ok=True, parents=True)
-            shutil.copyfile(src_path, dst_path)
+            if src_path.exists():
+                shutil.copyfile(src_path, dst_path)
+            else:
+                raise RuntimeError(f"{src_path} does not exist.")
 
     command = "tar cvf result.tar result"
     subprocess.run(shlex.split(command))

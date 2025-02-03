@@ -17,6 +17,12 @@ import networkx as nx
 
 
 def read_index_dict(file_path: Path) -> OrderedDict[str, list[str]]:
+    """
+    Read index file and return ordered dictionary with timestamps as keys.
+
+    :param file_path: Path to index file containing timestamps and atom indices.
+    :return: OrderedDict where keys are timestamps (str) and values are lists of atom indices (str).
+    """
     index_dict = OrderedDict()
     with open(file_path) as file:
         for line in file:
@@ -30,6 +36,12 @@ def read_index_dict(file_path: Path) -> OrderedDict[str, list[str]]:
 
 
 def get_water_indices(indices: list[str]):
+    """
+    Generate water molecule indices from given ice-like atom indices.
+
+    :param indices: List of ice-like atom indices.
+    :return: List of water molecule indices not present in the input solid-like indices.
+    """
     indices = indices.copy()
     indices.append(f"{3946 * 4 + 1}")  # num_SOL * 4 + 1
     water_indices = []
@@ -42,6 +54,13 @@ def get_water_indices(indices: list[str]):
 
 
 def write_index_dict(index_dict: OrderedDict[str, list[str]], file_path: Path):
+    """
+    Write index dictionary to file.
+
+    :param index_dict: Dictionary with timestamps as keys and atom index lists as values.
+    :param file_path: Output file path for writing the index data.
+    :return:
+    """
     with open(file_path, 'w') as file:
         for t, indices in index_dict.items():
             file.write(f"{t} {' '.join(indices)}\n")
@@ -75,6 +94,7 @@ def filter_solid_like_atoms(solid_like_atoms_dict: OrderedDict):
 def generate_graph(pos_atoms: np.ndarray, ids: np.ndarray, box_size, type2indices: dict[str, list[int]],
                    threshold_edge=3.5) -> nx.Graph:
     """
+    Generate molecular graph based on spatial proximity.
 
     :param pos_atoms: Positions of atoms. Shape: (N, 3)
     :param ids: Indices of atoms. Shape: (N)
@@ -139,8 +159,8 @@ def _correct_bulk(G: nx.Graph, max_iter=10) -> tuple[np.ndarray, np.ndarray]:
         n_mobile_two_shell = n_ice_two_shell + n_water_two_shell
         cond_bulk = ~cond_surface & (n_mobile_two_shell >= 8)
 
-        water_to_ice = is_water & cond_bulk & (n_water_two_shell <= 2)
-        ice_to_water = is_ice & cond_bulk & (n_ice_two_shell <= 2)
+        water_to_ice = is_water & cond_bulk & (n_water_two_shell <= 1)
+        ice_to_water = is_ice & cond_bulk & (n_ice_two_shell <= 1)
 
         if water_to_ice.sum() + ice_to_water.sum() == 0:  # converge
             break
@@ -180,22 +200,21 @@ def _correct_surface_water2ice(G: nx.Graph, max_iter=20) -> np.ndarray:
     adj_matrix_three_shell.eliminate_zeros()
     is_surface = node_type_array[:, _type_to_index["surface"]]
     n_surface_two_shell = adj_matrix_two_shell @ is_surface
-    cond_surface = n_surface_two_shell >= 1
+    near_surface = n_surface_two_shell >= 1
 
     update_n_list = []
     for i in range(max_iter):
-        is_true_ice = node_type_array[:, _type_to_index["ice"]] & ~cond_surface | new_ice_array
-        is_true_water = node_type_array[:, _type_to_index["water"]] & ~cond_surface
-        n_true_ice_two_shell = adj_matrix_two_shell @ is_true_ice
-        n_true_water_two_shell = adj_matrix_two_shell @ is_true_water
-        maybe_ice = cond_surface & node_type_array[:, _type_to_index["water"]]
-        maybe_ice_to_ice = maybe_ice & (n_true_ice_two_shell > n_true_water_two_shell) & (n_true_water_two_shell <= 2)
-        if np.sum(maybe_ice_to_ice) == 0:
+        is_ice = node_type_array[:, _type_to_index["ice"]]
+        is_water = node_type_array[:, _type_to_index["water"]]
+        n_ice_two_shell = adj_matrix_two_shell @ is_ice
+        water_to_ice = is_water & near_surface & (n_ice_two_shell >= 8)
+        update_n = np.sum(water_to_ice)
+        if update_n == 0:
             break
-        update_n_list.append(np.sum(maybe_ice_to_ice))
-        new_ice_array |= maybe_ice_to_ice
-        node_type_array[:, _type_to_index["ice"]] |= maybe_ice_to_ice
-        node_type_array[:, _type_to_index["water"]] &= ~maybe_ice_to_ice
+        update_n_list.append(update_n)
+        new_ice_array |= water_to_ice
+        node_type_array[:, _type_to_index["ice"]] |= water_to_ice
+        node_type_array[:, _type_to_index["water"]] &= ~water_to_ice
     else:
         print(f"{inspect.currentframe().f_code.co_name}: Failed to converge after {max_iter} iterations.")
         print(update_n_list)
@@ -213,8 +232,6 @@ def correct_ice_index(path_to_conf: Path, path_to_traj: Path, path_to_index: Pat
     for ts in u.trajectory:
         if int(float(ts.time)) % 500 == 0:
             print(ts.time)
-        # if f"{ts.time:.1f}" != "4020.0":
-        #     continue
         ice_index = ice_index_dict[f"{ts.time:.1f}"]
         O_atoms_all = u.select_atoms("name OW")
         if len(ice_index) == 0:
@@ -235,19 +252,33 @@ def correct_ice_index(path_to_conf: Path, path_to_traj: Path, path_to_index: Pat
                         "surface": O_atoms_surface.ids}
         G = generate_graph(pos_atoms, ids, box_size, type2indices)
 
-        new_water_list = []
-        new_ice_list = []
-        if correct_surface:
-            surface_water_to_ice_array = _correct_surface_water2ice(G)
-            new_ice_list.append(surface_water_to_ice_array)
-            G = update_graph(G, {"ice": surface_water_to_ice_array})
+        new_water_set = set()
+        new_ice_set = set()
         if correct_bulk:
-            bulk_water_to_ice_array, bulk_ice_to_water_array = _correct_bulk(G)
-            new_ice_list.append(bulk_water_to_ice_array)
-            new_water_list.append(bulk_ice_to_water_array)
+            bulk_water_to_ice, bulk_ice_to_water = _correct_bulk(G)
+            # Update sets with bulk corrections
+            new_ice_set.update(bulk_water_to_ice)
+            new_water_set.update(bulk_ice_to_water)
+            # Remove any conflicts (water->ice should not be in water set)
+            new_water_set -= set(bulk_water_to_ice)
+            new_ice_set -= set(bulk_ice_to_water)
+            # Update graph with current changes
+            G = update_graph(G, {
+                "ice": list(bulk_water_to_ice),
+                "water": list(bulk_ice_to_water)
+            })
+        if correct_surface:
+            surface_water_to_ice = _correct_surface_water2ice(G)
+            # Update sets with surface corrections
+            new_ice_set.update(surface_water_to_ice)
+            # Remove converted waters from water set
+            new_water_set -= set(surface_water_to_ice)
+            G = update_graph(G, {
+                "ice": list(surface_water_to_ice),
+            })
 
-        new_ice_index = [str(x) for new_ice in new_ice_list for x in new_ice]
-        new_water_index = [str(x) for new_water in new_water_list for x in new_water]
+        new_ice_index = [str(x) for x in sorted(new_ice_set, key=int)]
+        new_water_index = [str(x) for x in sorted(new_water_set, key=int)]
 
         new_ice_index_dict[f"{ts.time:.1f}"] = new_ice_index
         new_water_index_dict[f"{ts.time:.1f}"] = new_water_index
@@ -305,6 +336,7 @@ def calc_concentration_at_point(pos_atoms: np.ndarray, pos_points: np.ndarray, b
     :param ksi: Variance of Gaussian
     :return:
     """
+    assert len(pos_atoms) != 0
     box = freud.box.Box.from_box(box_size)
     aq = freud.locality.AABBQuery(box, pos_atoms)
     r_max = 3 * ksi
@@ -326,7 +358,10 @@ def calc_concentration_on_grid(pos_atom: np.ndarray, pos_grid: np.ndarray,
     :return: Shape: (X, Y ,Z)
     """
     shape = pos_grid.shape[:3]
-    concentrations = calc_concentration_at_point(pos_atom, pos_grid.reshape(-1, 3), box_size, ksi).reshape(shape)
+    if len(pos_atom) == 0:
+        concentrations = np.zeros(shape)
+    else:
+        concentrations = calc_concentration_at_point(pos_atom, pos_grid.reshape(-1, 3), box_size, ksi).reshape(shape)
     return concentrations
 
 
@@ -353,7 +388,7 @@ def calc_interface_in_t_range(u: mda.Universe, solid_like_atoms_dict: dict[str, 
         ice_atoms = u.select_atoms(f"bynum {' '.join(ice_atoms_indices)}") if ice_atoms_indices else u.select_atoms("")
         water_indices = get_water_indices(ice_atoms_indices)
         water_atoms = u.select_atoms(f"bynum {' '.join(water_indices)}") if water_indices else u.select_atoms("")
-        surface_atoms = u.select_atoms("resname PI and name O_PI")
+        surface_atoms = u.select_atoms("name O_PI")
         atoms_dict = {"ice": ice_atoms, "water": water_atoms, "surface": surface_atoms}
         pos_dict = {k: v.positions for k, v in atoms_dict.items()}
         concentration_dict = {k: calc_concentration_on_grid(v, pos_grid, box_size, ksi) for k, v in pos_dict.items()}
@@ -416,7 +451,7 @@ def post_processing_with_PI():
 def post_processing_correct_ice():
     path_to_conf = Path("../../conf.gro")
     path_to_traj = Path("./trajout.xtc")
-    method_list = ["chillplus", "with_PI"]
+    method_list = ["with_PI"]
     for method in method_list:
         method_folder = Path(f"./post_processing_{method}")
         path_to_index = method_folder / "solid_like_atoms.index"
@@ -446,14 +481,18 @@ def post_processing_combine_op():
     df = pd.read_csv("op.out", sep=r'\s+', header=None, names=columns, comment='#')
     df_method_list = []
     for method in method_list:
-        path_index_file = Path(f"post_processing_{method}/solid_like_atoms.index")
+        path_index_file = Path(f"post_processing_{method}/corrected_ice.index")
+        column_name = f"lambda_{method}"
+        if not path_index_file.exists():
+            path_index_file = Path(f"post_processing_{method}/solid_like_atoms.index")
+            column_name = f"{method}"
         index_dict = read_index_dict(path_index_file)
         t_list = []
         n_list = []
         for t, indices in index_dict.items():
             t_list.append(float(t))
             n_list.append(len(indices))
-        df_method = pd.DataFrame({"t[ps]": t_list, f"lambda_{method}": n_list})
+        df_method = pd.DataFrame({"t[ps]": t_list, column_name: n_list})
         df_method_list.append(df_method)
     for df_method in df_method_list:
         df = df.merge(df_method, on="t[ps]", how="inner")
@@ -465,10 +504,13 @@ def post_processing_interface():
     u = mda.Universe("../../conf.gro", "trajout.xtc")
     x_max, y_max, z_max = u.dimensions[:3]
     step = 1.0
-    x_range, y_range, z_range = (7 - 2, x_max - 7 + 2), (7 - 2, y_max - 7 + 2), (40 - 5, 70 + 2)
+    x_range, y_range, z_range = (0, x_max), (0, y_max), (40 - 5, 70 + 2)
     pos_grid, scale, offset = generate_grid(x_range, y_range, z_range, step=step)
-    index_path = Path("post_processing_with_PI/solid_like_atoms.index")
+    index_path = Path("post_processing_with_PI/corrected_ice.index")
+    if not index_path.exists():
+        index_path = Path("post_processing_with_PI/solid_like_atoms.index")
     index_dict = filter_solid_like_atoms(read_index_dict(index_path))
+    print(f"Read index from {index_path}")
 
     with open(current_path.parent.parent / "job_params.json", 'r') as file:
         job_params = json.load(file)

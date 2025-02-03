@@ -35,5 +35,6 @@ echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -s topol.tpr -pbc mol -center
     python ../../../post_processing.py --with_PI
 )
 
+python ../../post_processing.py --correct_ice
 python ../../post_processing.py --combine_op
 python ../../post_processing.py --interface
