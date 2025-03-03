@@ -6,12 +6,13 @@ import json
 def main():
     x_star_list_list = [
         list(range(0, 400 + 1, 15)),
-        # [200, 400]
+        # list(range(100, 800 + 1, 100))
     ]
     kappa_list = [
         0.05,
     ]
-    ramp_rate = 1000 / 3000
+    # ramp_rate = 1000 / 3000  # 300K
+    ramp_rate = 1000 / 6000  # 270 K
     prd_time = 5000
     # prd_time = 500
     job_params = {}
@@ -22,8 +23,8 @@ def main():
             ramp_time = int(delta_x_star / ramp_rate)
             nsteps = int((ramp_time + prd_time) / 0.002)
             job_params[f"op_{x_star}"] = {
-                "QBAR": {"X_STAR": x_star, "X_STAR_INIT": x_star_init, "KAPPA": kappa, "PHI": 0.0},
-                "TEMPERATURE": 300,
+                "QBAR": {"X_STAR": x_star, "X_STAR_INIT": x_star_init, "KAPPA": kappa, "PHI": 0.6},
+                "TEMPERATURE": 270,
                 "RAMP_TIME": ramp_time,
                 "PRD_TIME": prd_time,
                 "NSTEPS": nsteps

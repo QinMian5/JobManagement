@@ -5,10 +5,11 @@ import json
 
 def main():
     x_star_list_list = [
-        list(range(0, 1000 + 1, 100)),
-        # [1000]
+        list(range(0, 130+1, 10)),
+        list(range(140, 400+1, 20)),
     ]
     kappa_list = [
+        0.5,
         0.05,
     ]
     ramp_rate = 1000 / 3000

@@ -376,6 +376,8 @@ def generate_interface_from_concentration(concentration: np.ndarray, level=0.015
 
 def calc_interface_in_t_range(u: mda.Universe, solid_like_atoms_dict: dict[str, list[str]], pos_grid, scale,
                               offset, t_range: tuple[float, float], ksi=3.5 / 2):
+    avg_centroid = u.dimensions[:3] / 2
+
     instantaneous_interface_dict = {}
     acc_concentration = {"ice": np.zeros(pos_grid.shape[:3]),
                          "water": np.zeros(pos_grid.shape[:3]),
@@ -391,6 +393,12 @@ def calc_interface_in_t_range(u: mda.Universe, solid_like_atoms_dict: dict[str, 
         surface_atoms = u.select_atoms("name O_PI")
         atoms_dict = {"ice": ice_atoms, "water": water_atoms, "surface": surface_atoms}
         pos_dict = {k: v.positions for k, v in atoms_dict.items()}
+        if pos_dict["ice"].shape[0] > 0:
+            current_centroid = ice_atoms.center_of_geometry()
+            shift = avg_centroid - current_centroid
+            shift[2] = 0  # do not shift z
+            for k, v in pos_dict.items():
+                pos_dict[k] = v + shift
         concentration_dict = {k: calc_concentration_on_grid(v, pos_grid, box_size, ksi) for k, v in pos_dict.items()}
         nodes, faces = generate_interface_from_concentration(concentration_dict["ice"])
         nodes = nodes * scale + offset

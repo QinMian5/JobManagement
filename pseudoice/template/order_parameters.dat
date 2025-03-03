@@ -20,6 +20,19 @@ ProbeVolume = {
     alpha_c = 0.02
 }
 
+ProbeVolume = {
+    name = box_top
+    type = box
+    target_atom_group = target
+
+    x_range = [ -1.0 10.0 ]
+    y_range = [ -1.0 10.0 ]
+    z_range = [ 6.1 7.1 ]
+
+    sigma = 0.01
+    alpha_c = 0.02
+}
+
 OrderParameter = {
     name = qbar
     probe_volume = box
@@ -49,16 +62,51 @@ OrderParameter = {
     alpha_c_eps = 0.02
 }
 
+OrderParameter = {
+    name = qbar_top
+    probe_volume = box_top
+    type = lambda_qbar
+    harmonic_index = 6
+    target_atom_group = target
+
+    qbar_c = 0.352
+    sigma_qbar = 0.01
+    alpha_c_qbar = 0.02
+
+    restrict_ntilde_nn = yes
+
+    is_atomwise = no
+    is_intensive = no
+    fast_harmonics = yes
+
+    NeighborSphere = {
+        radius = 0.35
+        sigma = 0.01
+        alpha_c = 0.02
+    }
+
+    eps_nn = 0.01
+    nstar_eps = 0.1
+    sigma_eps = 0.01
+    alpha_c_eps = 0.02
+}
+
 Bias = {
     order_parameter = qbar
-    phi = ${QBAR.PHI}
     x_star_range = [ ${QBAR.X_STAR_INIT} ${QBAR.X_STAR} ]
     t_range_ramp = [ 0 ${RAMP_TIME} ]
     kappa = ${QBAR.KAPPA}
 }
 
+Bias = {
+    order_parameter = qbar_top
+    phi = ${QBAR_TOP.PHI}
+    x_star = 0
+    kappa = 0.0
+}
+
 OutputFile = {
     name = op.out
-    values = [ qbar.value box.N box.Ntilde bias_qbar.value ]
-    stride = 5000
+    values = [ qbar.value qbar_top.value box.N box.Ntilde box_top.N box_top.Ntilde bias_qbar.value bias_qbar_top.value ]
+    stride = 500
 }
