@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #SBATCH --partition=p_pamish
-#SBATCH --job-name="het_${QBAR.X_STAR}"
+#SBATCH --job-name="het_${TEMPERATURE}K_${QBAR.X_STAR}"
 #SBATCH --output=job.log
 #SBATCH --error=job.error
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=16
-#SBATCH --time=72:00:00
+#SBATCH --time=96:00:00
 
 if [[ -d "/scratch/pamish1/mian" ]]; then
     module purge
