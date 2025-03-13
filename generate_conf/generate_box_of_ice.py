@@ -10,11 +10,11 @@ from MDAnalysis.transformations import rotateby
 from utils import *
 
 
-file_box_of_ice = Path("./box_of_ice.gro")
+file_box_of_ice = Path("pseudoice/box_of_ice.gro")
 
 
 def generate_ice():
-    lattice_target = np.array([5, 5, 5])
+    lattice_target = np.array([7, 7, 7])
     lattice_unit = np.array([0.78228388, 0.90365185, 0.73535726])
     rep = np.ceil(lattice_target / lattice_unit).astype(int)
     rep = f"{rep[0]} {rep[2]} {rep[1]}"
@@ -49,14 +49,14 @@ def generate_water():
     merged_universe = merge_atom_groups([small_box_ag], dimensions=np.array([x_max, y_max, z_max, 90, 90, 90]))
     all_atoms = merged_universe.select_atoms("all")
 
-    with mda.Writer("small_box_of_water.gro", all_atoms.n_atoms) as w:
+    with mda.Writer("pseudoice/small_box_of_water.gro", all_atoms.n_atoms) as w:
         for ts in merged_universe.trajectory:
             w.write(all_atoms)
 
 
 def main():
-    generate_ice()
-    # generate_water()
+    # generate_ice()
+    generate_water()
 
 
 if __name__ == "__main__":

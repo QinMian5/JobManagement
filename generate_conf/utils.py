@@ -32,6 +32,13 @@ class Region:
         return Region(lambda point: self(point) and not other(point))
 
 
+def union(regions: list[Region]):
+    result = regions[0]
+    for i in range(1, len(regions)):
+        result = result.union(regions[i])
+    return result
+
+
 def define_region(shape, **params):
     """
     Returns a function that determines if a point is within the defined region.

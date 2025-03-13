@@ -103,7 +103,7 @@ def submit() -> None:
 def gather() -> None:
     _backup(_path_result_dir)
     _path_result_dir.mkdir()
-    shutil.copyfile("./conf.gro", _path_result_dir / "conf.gro")
+    shutil.copyfile("conf.gro", _path_result_dir / "conf.gro")
     shutil.copyfile("job_params.json", _path_result_dir / "job_params.json")
 
     job_params = _load_params()
