@@ -43,7 +43,7 @@ def get_water_indices(indices: list[str]):
     :return: List of water molecule indices not present in the input solid-like indices.
     """
     indices = indices.copy()
-    indices.append(f"{2973 * 4 + 1}")  # num_SOL * 4 + 1
+    indices.append(f"{8719 * 4 + 1}")  # num_SOL * 4 + 1
     water_indices = []
     for i in range(len(indices) - 1):
         first = int(indices[i])
@@ -85,7 +85,7 @@ def combine_indices(indices_list: list[OrderedDict], allow_duplicate=False):
 def filter_solid_like_atoms(solid_like_atoms_dict: OrderedDict):
     for k, v, in solid_like_atoms_dict.items():
         for i in range(len(v)):
-            if int(v[i]) > 2973 * 4:
+            if int(v[i]) > 8719 * 4:
                 solid_like_atoms_dict[k] = v[:i]
                 break
     return solid_like_atoms_dict
@@ -499,12 +499,15 @@ def post_processing_combine_op():
     df.to_csv("op_combined.csv", index=False)
 
 
-def post_processing_interface():
+def post_processing_interface(translated=True):
     current_path = Path.cwd()
-    u = mda.Universe("../../conf.gro", "trajout.xtc")
+    if translated:
+        u = mda.Universe("../../translated.gro", "translated.xtc")
+    else:
+        u = mda.Universe("../../conf.gro", "trajout.xtc")
     x_max, y_max, z_max = u.dimensions[:3]
     step = 1.0
-    x_range, y_range, z_range = (0, x_max), (0, y_max), (15, 65)
+    x_range, y_range, z_range = (0, x_max), (0, y_max), (35, 80)
     pos_grid, scale, offset = generate_grid(x_range, y_range, z_range, step=step)
     index_path = Path("post_processing_with_PI/corrected_ice.index")
     if not index_path.exists():

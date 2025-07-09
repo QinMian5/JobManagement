@@ -5,8 +5,8 @@
 #SBATCH --output=job.log
 #SBATCH --error=job.error
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=8
-#SBATCH --time=48:00:00
+#SBATCH --ntasks-per-node=16
+#SBATCH --time=72:00:00
 
 if [[ -d "/scratch/pamish1/mian" ]]; then
     module purge
@@ -15,8 +15,9 @@ fi
 source activate gromacs
 
 gmx grompp -p ../../../../topol.top -f grompp.mdp -c ../../conf.gro -r ../../conf.gro -maxwarn 10
-mpirun -np 8 gmx_mpi mdrun -s topol.tpr -ntomp 1 -cpt 10 -dd 2 2 2 -op
-echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -s topol.tpr -pbc mol -center
+mpirun -np 16 gmx_mpi mdrun -s topol.tpr -ntomp 1 -cpt 10 -dd 4 4 1 -op
+echo -e "0\n0" | gmx trjconv -f traj_comp.xtc -o trajout.xtc -s topol.tpr -pbc mol -center
+echo -e "0" | gmx trjconv -f traj_comp.xtc -o translated.xtc -s topol.tpr -trans 3.5 3.6 0 -pbc mol
 
 (
     cd post_processing_qbar || exit

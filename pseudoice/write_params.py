@@ -5,16 +5,36 @@ import json
 
 def main():
     x_star_list_list = [
-        [300, 400, 500, 600],
+        list(range(10, 100 + 1, 10)),
+        list(range(120, 800 + 1, 40)),
     ]
     kappa_list = [
+        0.5,
         0.02,
     ]
-    # ramp_rate = 1000 / 3000  # 300K
-    ramp_rate = 1000 / 6000  # 270K
-    prd_time = 5000
+    T = 300
+    assert T in [300, 270, 250]
+    ramp_rate_dict = {
+        300: 1000 / 3000,
+        270: 1000 / 6000,
+        250: 1000 / 12000,
+    }
+    ramp_rate = ramp_rate_dict[T]
+    prd_time_dict = {
+        300: 5000,
+        270: 10000,
+        250: None
+    }
+    phi_dict = {
+        300: 0,
+        270: 0.0,
+        250: 1.0
+    }
+    phi = phi_dict[T]
+    prd_time = prd_time_dict[T]
     job_params = {}
-    x_star_init = 600
+    # x_star_init = 6531
+    x_star_init = 1000
     for x_star_list, kappa in zip(x_star_list_list, kappa_list):
         for x_star in x_star_list:
             delta_x_star = abs(x_star - x_star_init)
@@ -22,8 +42,7 @@ def main():
             nsteps = int((ramp_time + prd_time) / 0.002)
             job_params[f"op_{x_star}"] = {
                 "QBAR": {"X_STAR": x_star, "X_STAR_INIT": x_star_init, "KAPPA": kappa},
-                "QBAR_TOP": {"PHI": 0.6},
-                "TEMPERATURE": 270,
+                "TEMPERATURE": T,
                 "RAMP_TIME": ramp_time,
                 "PRD_TIME": prd_time,
                 "NSTEPS": nsteps

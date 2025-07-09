@@ -5,7 +5,7 @@ XtcFile = ../trajout.xtc
 # Oxygen atoms in water molecules
 AtomGroup = {
     name = target
-    selection = [ atom_index 1-19480:4 ]
+    selection = [ atom_index 1-19640:4 ]
 }
 
 # Probe volume: cover the whole box

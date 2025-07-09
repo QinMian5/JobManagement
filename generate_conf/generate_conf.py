@@ -83,12 +83,13 @@ def generate_het():
 
 def generate_pseudoice():
     h_PW = 10
-    h_PI = 10
-    w_pillar = 15
-    h_pillar = 40
-    h_SOL_ice = 20
-    h_SOL_water = 10
     interval_between_PW_PI = 20
+    h_PI = 10
+    wx_pillar = 23
+    wy_pillar = 20
+    h_pillar = 40
+    h_SOL_ice = 10
+    h_SOL_water = 10
 
     u_box_of_ice = mda.Universe("pseudoice/box_of_ice.gro")
     u_large_box_of_water = mda.Universe("box_of_water.gro")
@@ -103,11 +104,8 @@ def generate_pseudoice():
     ice_region = define_region("cuboid", x_range=[0, x_max], y_range=[0, y_max], z_range=[0, h_PI + h_pillar + h_SOL_ice])
     ice_ag = select_atoms_by_region(u_box_of_ice.select_atoms("all"), ice_region)
     PI_base_region = define_region("cuboid", x_range=[0, x_max], y_range=[0, y_max], z_range=[0, h_PI])
-    PI_pillar1_region = define_region("cuboid", x_range=[0, w_pillar], y_range=[0, w_pillar], z_range=[h_PI, h_PI + h_pillar])
-    PI_pillar2_region = define_region("cuboid", x_range=[0, w_pillar], y_range=[y_max - w_pillar, y_max], z_range=[h_PI, h_PI + h_pillar])
-    PI_pillar3_region = define_region("cuboid", x_range=[x_max - w_pillar, x_max], y_range=[0, w_pillar], z_range=[h_PI, h_PI + h_pillar])
-    PI_pillar4_region = define_region("cuboid", x_range=[x_max - w_pillar, x_max], y_range=[y_max - w_pillar, y_max], z_range=[h_PI, h_PI + h_pillar])
-    PI_region = union([PI_base_region, PI_pillar1_region, PI_pillar2_region, PI_pillar3_region, PI_pillar4_region])
+    PI_pillar_region = define_region("cuboid", x_range=[0, wx_pillar], y_range=[0, wy_pillar], z_range=[h_PI, h_PI + h_pillar])
+    PI_region = union([PI_base_region, PI_pillar_region])
     PI_ag = select_atoms_by_region(ice_ag, PI_region)
 
     # SOL_ice_region = define_region("cuboid", x_range=[0, x_max], y_range=[0, y_max], z_range=[0, h_PI + h_pillar + h_SOL_ice]).difference(PI_region)
